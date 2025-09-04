@@ -1,0 +1,22 @@
+/* app.css */
+
+/* Import Tailwind + DaisyUI + Animate plugin */
+/* @import "tailwindcss";
+@plugin "daisyui";
+@plugin "tailwindcss-animate"; */
+
+/* app.css */
+
+/* app.css */
+@import "tailwindcss";
+
+@plugin "daisyui" {
+    themes: light --default, dark --prefersdark, cupcake, emerald, bumblebee, synthwave, forest, garden, retro, cyberpunk, halloween, dracula, fantasy, lo-fi, pastel, night, wireframe;
+}
+
+@plugin "tailwindcss-animate";
+
+
+/* Source Blade untuk purge Tailwind */
+@source "../views";
+@source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
