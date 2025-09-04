@@ -1,50 +1,53 @@
-import React, { useState } from "react";
+import { Home, Users, BarChart3, Settings, BookOpen, HelpCircle } from "lucide-react";
 
-import {Home,Users,BarChart3,Settings,ChevronLeft,ChevronRight, } from "lucide-react";
-const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
+const Sidebar = ({ sidebarOpen, currentPage, setCurrentPage }) => {
+  const menuItems = [
+    { icon: <Home size={24} />, label: "Dashboard", key: "dashboard" },
+    { icon: <Users size={24} />, label: "Users", key: "users" },
+    { icon: <BarChart3 size={24} />, label: "Analytics", key: "analytics" },
+    { icon: <Settings size={24} />, label: "Settings", key: "settings" },
+    { icon: <BookOpen size={24} />, label: "Docs", key: "docs" },
+    { icon: <HelpCircle size={24} />, label: "Help", key: "help" },
+  ];
 
-
-    return (
-        <div
-            className={`hidden md:flex flex-col border-r border-base-300 bg-base-100 transition-all duration-300
+  return (
+    <div
+      className={`hidden md:flex flex-col border-r border-base-300 bg-base-100 transition-all duration-300
         ${sidebarOpen ? "w-64" : "w-20"}`}
-        >
-            {/* Header */}
-            <div className="flex items-center justify-between h-16 px-4 ">
-                {sidebarOpen && <h1 className="font-bold text-xl">Admin</h1>}
-                <button
-                    onClick={() => setSidebarOpen(!sidebarOpen)}
-                    className="btn btn-ghost btn-xs"
-                >
-                    {sidebarOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
-                </button>
-            </div>
+    >
+      {/* Logo Header */}
+      <div className="flex items-center justify-center h-16 px-4">
+        <span className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg">
+          L
+        </span>
+      </div>
 
-            {/* Menu */}
-            <ul className="menu p-2 flex-1">
-                <li>
-                    <a className="flex items-center gap-2">
-                        <Home size={20} /> {sidebarOpen && "Dashboard"}
-                    </a>
-                </li>
-                <li>
-                    <a className="flex items-center gap-2">
-                        <Users size={20} /> {sidebarOpen && "Users"}
-                    </a>
-                </li>
-                <li>
-                    <a className="flex items-center gap-2">
-                        <BarChart3 size={20} /> {sidebarOpen && "Analytics"}
-                    </a>
-                </li>
-                <li>
-                    <a className="flex items-center gap-2">
-                        <Settings size={20} /> {sidebarOpen && "Settings"}
-                    </a>
-                </li>
-            </ul>
-        </div>
-    )
-}
+      {/* Menu */}
+      <ul className="flex-1 flex flex-col gap-2">
+        {menuItems.map((item, index) => {
+          const isActive = currentPage === item.key;
 
-export default Sidebar
+          return (
+            <li key={index} className="w-full">
+              <button
+                onClick={() => setCurrentPage(item.key)}
+                className={`flex items-center gap-2 p-2 rounded-lg w-full transition-all
+                  ${sidebarOpen ? "justify-start px-4" : "justify-center"}
+                  ${isActive ? "bg-primary/20 text-primary" : "hover:bg-base-300 text-base-content"}
+                `}
+              >
+                {item.icon}
+                {sidebarOpen && <span>{item.label}</span>}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* Garis bawah */}
+      <div className="border-t border-base-300 mt-2" />
+    </div>
+  );
+};
+
+export default Sidebar;

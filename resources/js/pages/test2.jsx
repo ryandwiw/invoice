@@ -12,7 +12,6 @@ export default function Test2() {
       <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-500">
 
         <Navbar2 darkMode={darkMode} setDarkMode={setDarkMode} />
-
         {/* Mobile Menu */}
         {mobileMenu && (
           <div className="md:hidden bg-white dark:bg-gray-900 shadow-lg px-6 py-4 space-y-4">
