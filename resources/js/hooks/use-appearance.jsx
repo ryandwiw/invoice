@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
 const THEME_MAP = {
-  light: "cupcake",   // tema DaisyUI untuk mode terang
-  dark: "forest",  // tema DaisyUI untuk mode gelap
+  light: "bumblebee",   // tema DaisyUI untuk mode terang
+  dark: "dark",  // tema DaisyUI untuk mode gelap
 };
 
 const prefersDark = () =>

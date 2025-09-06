@@ -48,7 +48,8 @@ class HandleInertiaRequests extends Middleware
                     'id' => $request->user()->id,
                     'name' => $request->user()->name,
                     'email' => $request->user()->email,
-                    'role' => $request->user()->role, // ✅ tambahin role
+                    'role' => $request->user()->role,
+                    'profile_photo' => $request->user()->profile_photo_url,
                 ] : null,
             ],
             'ziggy' => fn (): array => [

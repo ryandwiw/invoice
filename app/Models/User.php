@@ -25,6 +25,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'profile_photo',
     ];
 
     /**
@@ -50,6 +51,7 @@ class User extends Authenticatable
         ];
     }
 
+
     // cek user role
     public function isFinance(): bool
     {
@@ -60,4 +62,14 @@ class User extends Authenticatable
     {
         return $this->role === self::ROLE_ADMIN;
     }
+
+    public function getProfilePhotoUrlAttribute(): ?string
+    {
+        return $this->profile_photo
+            ? asset('storage/' . $this->profile_photo)
+            : asset('images/default-avatar.png');
+    }
+
+    protected $appends = ['profile_photo_url'];
+
 }
