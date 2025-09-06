@@ -1,69 +1,85 @@
 "use client";
 import React, { useState } from "react";
-import Sidebar from "./components/Sidebar/Sidebar";
-import Navbar from "./components/Navbar/Navbar";
+import { AnimatePresence, motion } from "framer-motion";
+
+import MobileSidebar from "../components/auth/Sidebar/MobileSidebar";
+import HeaderBreadcrumb from "../components/auth/HeaderBreadcrumb";
+import Navbar from "../components/auth/Navbar/Navbar";
+import Sidebar from "../components/auth/Sidebar/Sidebar";
+
+// 🔑 pakai hook appearance
 import { useAppearance } from "@/hooks/use-appearance";
 
-export default function DashboardLayout({ children }) {
+export default function ModernDashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [notifOpen, setNotifOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  // ✅ ambil dari hook
   const { appearance, updateAppearance } = useAppearance();
 
   return (
-    <div className="flex h-screen transition-colors duration-300 bg-base-200">
-      {/* Desktop Sidebar */}
+    <div className="relative min-h-screen bg-base-200/60">
+      <Navbar
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        mobileSidebarOpen={mobileSidebarOpen}
+        setMobileSidebarOpen={setMobileSidebarOpen}
+        notifOpen={notifOpen}
+        setNotifOpen={setNotifOpen}
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        profileOpen={profileOpen}
+        setProfileOpen={setProfileOpen}
+        appearance={appearance}              // ✅ state dari hook
+        updateAppearance={updateAppearance}  // ✅ function dari hook
+      />
+
       <Sidebar
         sidebarOpen={sidebarOpen}
         currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
-        isMobile={false}
+        setCurrentPage={(key) => {
+          setCurrentPage(key);
+          setMobileSidebarOpen(false);
+        }}
       />
 
-      {/* Mobile Sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 md:hidden`}
-        style={{ transform: mobileSidebarOpen ? "translateX(0)" : "translateX(-100%)" }}
+      {/* Overlay mobile */}
+      <AnimatePresence>
+        {mobileSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] md:hidden"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <MobileSidebar
+        open={mobileSidebarOpen}
+        onClose={() => setMobileSidebarOpen(false)}
+        currentPage={currentPage}
+        onNavigate={(k) => {
+          setCurrentPage(k);
+          setMobileSidebarOpen(false);
+        }}
+      />
+
+      <main
+        className={`pt-16 transition-[margin] duration-300 ease-out ${
+          sidebarOpen ? "md:ml-64" : "md:ml-16"
+        }`}
       >
-        <Sidebar
-          sidebarOpen={true}
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          isMobile={true}
-        />
-      </div>
-
-      {/* Overlay for Mobile Sidebar */}
-      {mobileSidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 md:hidden"
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-      )}
-
-      <div className="flex flex-col flex-1">
-        <Navbar
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-          mobileSidebarOpen={mobileSidebarOpen}
-          setMobileSidebarOpen={setMobileSidebarOpen}
-          notifOpen={notifOpen}
-          setNotifOpen={setNotifOpen}
-          menuOpen={menuOpen}
-          setMenuOpen={setMenuOpen}
-          profileOpen={profileOpen}
-          setProfileOpen={setProfileOpen}
-          appearance={appearance}
-          updateAppearance={updateAppearance}
-        />
-
-        <main className={`flex-1 overflow-y-auto mt-16 p-6 ${sidebarOpen ? "md:ml-64" : "md:ml-16"}`}>
+        <div className="p-4 mx-auto max-w-7xl md:p-6">
+          <HeaderBreadcrumb current={currentPage} />
           {children}
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
