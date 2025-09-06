@@ -1,7 +1,7 @@
-import AppLayoutTemplate from '@/layouts/app/app-sidebar-layout';
+import ModernDashboardLayout from "@/layouts/DashboardLayout";
 
 export default ({ children, breadcrumbs, ...props }) => (
-    <AppLayoutTemplate breadcrumbs={breadcrumbs} {...props}>
+    <ModernDashboardLayout breadcrumbs={breadcrumbs} {...props}>
         {children}
-    </AppLayoutTemplate>
+    </ModernDashboardLayout>
 );

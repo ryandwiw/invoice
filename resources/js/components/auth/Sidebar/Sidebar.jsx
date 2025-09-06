@@ -1,63 +1,59 @@
-"use client";
-import React, { useMemo } from "react";
-import {
-    Home,
-    Users,
-    BarChart3,
-    Settings,
-    BookOpen,
-    HelpCircle,
-    LogOut,
-} from "lucide-react";
-import SidebarItem from "./SidebarItem";
+import React from "react";
+import { Link } from "@inertiajs/react";
 
-export default function Sidebar({ sidebarOpen, currentPage, setCurrentPage }) {
-    const menuItems = useMemo(
-        () => [
-            { icon: <Home size={22} />, label: "Dashboard", key: "dashboard" },
-            { icon: <Users size={22} />, label: "Users", key: "users" },
-            { icon: <BarChart3 size={22} />, label: "Analytics", key: "analytics" },
-            { icon: <Settings size={22} />, label: "Settings", key: "settings" },
-            { icon: <BookOpen size={22} />, label: "Docs", key: "docs" },
-            { icon: <HelpCircle size={22} />, label: "Help", key: "help" },
-            { icon: <LogOut size={22} />, label: "Logout", key: "logout" },
-        ],
-        []
-    );
-
+export default function Sidebar({
+    sidebarOpen,
+    currentPage,
+    setCurrentPage,
+    menuItems,
+}) {
     return (
         <aside aria-label="Sidebar" className="pointer-events-auto">
             <div
-                className={`fixed left-0 top-0 z-30 hidden h-screen flex-col md:flex bg-info shadow-xl transition-all transition-colors duration-300 ease-in-out ${sidebarOpen ? "w-64" : "w-16"}`}
+                className={`fixed left-0 top-0 z-30 hidden h-screen flex-col md:flex
+          bg-info shadow-xl transition-all duration-300 ease-in-out
+          ${sidebarOpen ? "w-64" : "w-16"}`}
             >
                 {/* Logo */}
                 <div className="flex items-center h-[65px] bg-base-100 shadow-md px-3 border-b border-base-300/70 transition-colors duration-300">
                     <div className="flex items-center gap-3">
-                        {/* Tetap bg-primary */}
                         <span className="grid w-10 h-10 font-bold text-white rounded-full place-items-center bg-primary">
                             L
                         </span>
                         <span
-                            className={`whitespace-nowrap text-sm font-bold transition-all duration-300 ${sidebarOpen ? "opacity-100" : "w-0 overflow-hidden opacity-0"
-                                }`}
+                            className={`whitespace-nowrap text-sm font-bold transition-all duration-300
+                ${sidebarOpen ? "opacity-100" : "w-0 overflow-hidden opacity-0"}`}
                         >
                             Mata Timur Nusantara
                         </span>
                     </div>
                 </div>
 
-
                 {/* Menu */}
                 <ul className="flex flex-col flex-1 gap-1 mt-3">
                     {menuItems.map((item) => (
-                        <SidebarItem
-                            key={item.key}
-                            icon={item.icon}
-                            label={item.label}
-                            isActive={currentPage === item.key}
-                            sidebarOpen={sidebarOpen}
-                            onClick={() => setCurrentPage(item.key)}
-                        />
+                        <li key={item.key}>
+                            <Link
+                                href={item.url}
+                                onClick={() => setCurrentPage(item.key)} // ✅ update state
+                                className={`flex items-center px-3 py-2 rounded-lg transition-colors duration-200 ${
+                                    currentPage === item.key
+                                        ? "bg-base-100 text-info"
+                                        : "hover:bg-base-100 text-base-100 hover:text-info"
+                                }`}
+                            >
+                                <div className="grid w-10 place-items-center">{item.icon}</div>
+                                <span
+                                    className={`text-sm font-medium transition-all duration-300 ${
+                                        sidebarOpen
+                                            ? "opacity-100"
+                                            : "w-0 overflow-hidden opacity-0"
+                                    }`}
+                                >
+                                    {item.label}
+                                </span>
+                            </Link>
+                        </li>
                     ))}
                 </ul>
             </div>

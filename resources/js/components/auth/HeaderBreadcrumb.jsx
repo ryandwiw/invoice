@@ -3,7 +3,9 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Home, ChevronRight } from "lucide-react";
 
-export default function HeaderBreadcrumb({ current }) {
+export default function HeaderBreadcrumb({ current, menuItems = [] }) {
+    const currentItem = menuItems.find((item) => item.key === current);
+
     return (
         <div className="mb-4 md:mb-6">
             <motion.div
@@ -16,8 +18,11 @@ export default function HeaderBreadcrumb({ current }) {
                     <Home size={16} /> Home
                 </span>
                 <ChevronRight size={16} className="opacity-60" />
-                <span className="capitalize">{current}</span>
+                <span className="capitalize">
+                    {currentItem?.label ?? current}
+                </span>
             </motion.div>
         </div>
     );
 }
+
