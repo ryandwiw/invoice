@@ -1,13 +1,11 @@
 "use client";
-import React, { useState,useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-
 
 import Navbar from "../components/auth/Navbar/Navbar";
 import HeaderBreadcrumb from "../components/auth/HeaderBreadcrumb";
 import { Home, Users, BarChart3, Settings, BookOpen, HelpCircle, LogOut } from "lucide-react";
 
-// hook appearance
 import { useAppearance } from "@/hooks/use-appearance";
 import { usePage } from "@inertiajs/react";
 import MobileSidebar from "../components/auth/Sidebar/MobileSidebar";
@@ -21,23 +19,41 @@ export default function ModernDashboardLayout({ children }) {
     const [menuOpen, setMenuOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
 
-    const { auth } = usePage().props;
-    const userRole = auth?.user?.role;
+    const { url } = usePage();
+    const { auth } = usePage().props || {};
+    const user = auth?.user || null;
+    const userRole = user?.role;
 
-    // hook appearance
     const { appearance, updateAppearance } = useAppearance();
 
-    // role-based menu
+    // Menu definition
     const menuItems = [
-        { icon: <Home size={22} />, label: "Dashboard", key: "dashboard", url: route('dashboard'), roles: ["admin", "finance"] },
-        { icon: <Users size={22} />, label: "Users", key: "users", url: route('profile.edit'), roles: ["admin"] },
-        { icon: <BarChart3 size={22} />, label: "Analytics", key: "analytics", url: route('profile.edit'), roles: ["admin"] },
-        { icon: <Settings size={22} />, label: "Settings", key: "settings", url: route('profile.edit'), roles: ["admin", "finance"] },
-        { icon: <BookOpen size={22} />, label: "Invoices", key: "invoices", url: route('profile.edit'), roles: ["finance"] },
-        { icon: <HelpCircle size={22} />, label: "Help", key: "help", url: route('profile.edit'), roles: ["admin", "finance"] },
-        { icon: <LogOut size={22} />, label: "Logout", key: "logout", url: route('logout'), roles: ["admin", "finance"] },
+        { icon: <Home size={22} />, label: "Dashboard", key: "dashboard", url: route("dashboard"), roles: ["admin", "finance"] },
+        { icon: <Users size={22} />, label: "Users", key: "users", url: route("profile.edit"), roles: ["admin"] },
+        { icon: <BarChart3 size={22} />, label: "Analytics", key: "analytics", url: route("profile.edit"), roles: ["admin"] },
+        { icon: <Settings size={22} />, label: "Settings", key: "settings", url: route("profile.edit"), roles: ["admin", "finance"], pattern: /^\/settings/, },
+        { icon: <BookOpen size={22} />, label: "Invoices", key: "invoices", url: route("profile.edit"), roles: ["finance"] },
+        { icon: <HelpCircle size={22} />, label: "Help", key: "help", url: route("profile.edit"), roles: ["admin", "finance"] },
+        { icon: <LogOut size={22} />, label: "Logout", key: "logout", url: route("logout"), roles: ["admin", "finance"] },
     ];
+
     const filteredMenu = menuItems.filter(item => item.roles.includes(userRole));
+
+    useEffect(() => {
+        if (!url) return;
+
+        const activeMenu = filteredMenu.find(item => {
+            if (item.pattern) {
+                return item.pattern.test(url); // ✅ match regex
+            }
+            const itemPath = new URL(item.url, window.location.origin).pathname;
+            return url.startsWith(itemPath);
+        });
+
+        setCurrentPage(activeMenu ? activeMenu.key : null);
+    }, [url, filteredMenu]);
+
+
 
     return (
         <div className="relative min-h-screen bg-base-200">
@@ -56,7 +72,6 @@ export default function ModernDashboardLayout({ children }) {
                 updateAppearance={updateAppearance}
             />
 
-            {/* Desktop Sidebar */}
             <Sidebar
                 sidebarOpen={sidebarOpen}
                 currentPage={currentPage}
@@ -64,7 +79,6 @@ export default function ModernDashboardLayout({ children }) {
                 menuItems={filteredMenu}
             />
 
-            {/* Overlay mobile */}
             <AnimatePresence>
                 {mobileSidebarOpen && (
                     <motion.div
@@ -77,7 +91,6 @@ export default function ModernDashboardLayout({ children }) {
                 )}
             </AnimatePresence>
 
-            {/* Mobile Sidebar */}
             <MobileSidebar
                 open={mobileSidebarOpen}
                 onClose={() => setMobileSidebarOpen(false)}
@@ -89,7 +102,6 @@ export default function ModernDashboardLayout({ children }) {
             <main className={`pt-16 transition-[margin] duration-300 ease-out ${sidebarOpen ? "md:ml-64" : "md:ml-16"}`}>
                 <div className="p-4 mx-auto max-w-7xl md:p-6">
                     <HeaderBreadcrumb current={currentPage} menuItems={filteredMenu} />
-
                     {children}
                 </div>
             </main>
