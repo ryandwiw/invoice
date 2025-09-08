@@ -8,38 +8,50 @@ use Illuminate\Database\Eloquent\Model;
 
 class Invoice extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'company_name',
-        'company_address',
-        'company_phone',
-        'company_email',
-        'company_profile_tujuan',
-        'company_address_tujuan',
-        'company_phone_tujuan',
-        'company_email_tujuan',
-        'referensi',
+        'company_id',
+        'user_id',
+        'customer_id',
+        'invoice_no',
+        'ref_no',
         'invoice_date',
         'due_date',
-        'items',
+        'currency',
         'subtotal',
-        'total',
+        'discount_total',
+        'extra_discount',
+        'shipping_cost',
+        'tax_total',
+        'grand_total',
+        'custom_labels',
+        'logo_path',
+        'signature_path',
         'status',
-        'pdf_url',
-        'user_id'
     ];
 
     protected $casts = [
-        'items' => 'array',
-        'invoice_date' => 'date:d-m-Y',
-        'due_date' => 'date:d-m-Y',
-        'subtotal' => 'decimal:2',
-        'total' => 'decimal:2',
+        'custom_labels' => 'array',
+        'invoice_date' => 'date',
+        'due_date' => 'date',
     ];
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
 
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function items()
+    {
+        return $this->hasMany(InvoiceItem::class);
     }
 }
