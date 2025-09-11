@@ -3,128 +3,226 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
+use App\Models\Product;
+use App\Models\Customer;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class InvoiceController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * List semua invoice
      */
-    public function index(Request $request)
+    public function index()
     {
-        $user = $request->user();
-        $query = Invoice::query()->latest();
-        if ($user->isFinance()) $query->where('user_id', $user->id);
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
-        return Inertia::render('invoices/index', [
-            'invoices' => $query->paginate(10),
+        if ($user->isFinance()) {
+            $invoices = Invoice::with('customer', 'user', 'company')
+                ->where('user_id', $user->id)
+                ->latest()
+                ->paginate(15);
+        } else {
+            $invoices = Invoice::with('customer', 'user', 'company')
+                ->latest()
+                ->paginate(15);
+        }
+
+        return inertia('Invoices/Index', [
+            'invoices' => $invoices,
         ]);
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Form create invoice (finance only)
      */
     public function create()
     {
-        return Inertia::render('invoices/create');
-    }
+        $this->authorizeFinance();
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        $data = $this->validateInvoice($request);
-        // dd($data);
-        $companyInfo = [
-            'company_name' => 'Soil Agriculture Indonesia',
-            'company_address' => 'Jalan Tegal Mapan No. 18, Kecamatan Pakis, Kab. Malang, Jawa Timur, 65154 Indonesia',
-            'company_phone'  => '+62 813-3570-7170',
-            'company_email'  => 'soilagri.ind@gmail.com',
-        ];
-
-        Invoice::create(array_merge($companyInfo, $data, [
-            'user_id' => $request->user()->id,
-            'status' => 'draft',
-        ]));
-
-        return redirect()->route('invoices.index')->with('success', 'Invoice berhasil dibuat!');
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Invoice $invoice, Request $request)
-    {
-        $this->authorizeInvoice($invoice, $request->user());
-        return Inertia::render('invoices/show', ['invoice' => $invoice]);
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Invoice $invoice, Request $request)
-    {
-        $this->authorizeInvoice($invoice, $request->user());
-        return Inertia::render('invoices/edit', ['invoice' => $invoice]);
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Invoice $invoice, Request $request)
-    {
-        $this->authorizeInvoice($invoice, $request->user());
-        $data = $this->validateInvoice($request);
-        $invoice->update($data);
-
-        return redirect()->route('invoices.show', $invoice->id)
-            ->with('success', 'Invoice berhasil diupdate!');
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Invoice $invoice, Request $request)
-    {
-        $this->authorizeInvoice($invoice, $request->user());
-        $invoice->delete();
-
-        return redirect()->route('invoices.index')->with('success', 'Invoice berhasil dihapus!');
-    }
-
-    private function validateInvoice(Request $request)
-    {
-        return $request->validate([
-            'company_profile_tujuan' => 'required|string',
-            'company_address_tujuan' => 'nullable|string',
-            'company_phone_tujuan' => 'nullable|regex:/^\d+$/',
-            'company_email_tujuan' => 'nullable|email',
-            'referensi' => 'nullable|string',
-            'invoice_date' => 'required|date',
-            'due_date' => 'nullable|date',
-            'items' => 'required|array|min:1',
-            'items.*.name' => 'required|string',
-            'items.*.qty' => 'required|numeric|min:1',
-            'items.*.price' => 'required|numeric|min:0',
-            'subtotal' => 'required|numeric',
-            'total' => 'required|numeric',
-        ], [
-            'company_profile_tujuan.required' => 'Nama client harus diisi.',
-            'company_profile_tujuan.string' => 'Nama client harus berupa teks.',
-            'company_phone_tujuan.regex' => 'Telepon hanya boleh berisi angka.',
-            'company_email_tujuan.email' => 'Email tidak valid.',
-            'items.*.name.required' => 'Nama item harus diisi.',
-            'items.*.qty.min' => 'Qty minimal 1.',
-            'items.*.price.min' => 'Harga minimal 0.',
-            'subtotal.required' => 'Subtotal harus dihitung.',
-            'total.required' => 'Total harus dihitung.',
+        return inertia('Invoices/Create', [
+            'customers' => Customer::all(),
+            'products'  => Product::with('prices')->get(),
         ]);
     }
 
-    private function authorizeInvoice(Invoice $invoice, $user)
+    /**
+     * Preview invoice sebelum simpan (finance only)
+     */
+    public function preview(Request $request)
     {
-        if ($user->isFinance() && $invoice->user_id !== $user->id) abort(403);
+        $this->authorizeFinance();
+
+        $data = $request->validate([
+            'customer_id'   => 'required|exists:customers,id',
+            'invoice_no'    => 'required|string',
+            'invoice_date'  => 'required|date',
+            'due_date'      => 'nullable|date',
+            'currency'      => 'required|string|max:10',
+            'items'         => 'required|array|min:1',
+            'items.*.description' => 'required|string',
+            'items.*.quantity'    => 'required|numeric|min:1',
+            'items.*.unit'        => 'required|string',
+            'items.*.price'       => 'required|numeric|min:0',
+            'items.*.discount'    => 'nullable|numeric|min:0',
+            'items.*.tax'         => 'nullable|numeric|min:0',
+        ]);
+
+        // hitung total sementara
+        $subtotal = 0;
+        foreach ($data['items'] as $item) {
+            $lineTotal = ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0) + ($item['tax'] ?? 0);
+            $subtotal += $lineTotal;
+        }
+
+        $grandTotal = $subtotal
+            - ($data['discount_total'] ?? 0)
+            - ($data['extra_discount'] ?? 0)
+            + ($data['shipping_cost'] ?? 0)
+            + ($data['tax_total'] ?? 0);
+
+        return response()->json([
+            'success' => true,
+            'preview' => [
+                'invoice_no'   => $data['invoice_no'],
+                'customer'     => Customer::find($data['customer_id']),
+                'items'        => $data['items'],
+                'subtotal'     => $subtotal,
+                'grand_total'  => $grandTotal,
+                'currency'     => $data['currency'],
+                'invoice_date' => $data['invoice_date'],
+                'due_date'     => $data['due_date'] ?? null,
+            ],
+        ]);
+    }
+
+    /**
+     * Store invoice baru (finance only)
+     */
+    public function store(Request $request)
+    {
+        $this->authorizeFinance();
+
+        $validated = $request->validate([
+            'customer_id'   => 'required|exists:customers,id',
+            'invoice_no'    => 'required|string|unique:invoices,invoice_no',
+            'invoice_date'  => 'required|date',
+            'due_date'      => 'nullable|date',
+            'currency'      => 'required|string|max:10',
+            'items'         => 'required|array|min:1',
+            'items.*.product_id' => 'nullable|exists:products,id',
+            'items.*.description' => 'required|string',
+            'items.*.quantity'    => 'required|numeric|min:1',
+            'items.*.unit'        => 'required|string',
+            'items.*.price'       => 'required|numeric|min:0',
+            'items.*.discount'    => 'nullable|numeric|min:0',
+            'items.*.tax'         => 'nullable|numeric|min:0',
+            'custom_labels'       => 'nullable|array',
+            'signature_path'      => 'nullable|file|mimes:png,jpg,jpeg',
+            'status'              => 'required|in:draft,printed,sent,paid,cancelled',
+        ]);
+
+        if ($request->hasFile('signature_path')) {
+            $validated['signature_path'] = $request->file('signature_path')->store('signatures', 'public');
+        }
+
+        return DB::transaction(function () use ($validated) {
+            $subtotal = 0;
+            foreach ($validated['items'] as $item) {
+                $lineTotal = ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0) + ($item['tax'] ?? 0);
+                $subtotal += $lineTotal;
+            }
+
+            $invoice = Invoice::create([
+                'company_id'     => Auth::user()->company_id ?? 1,
+                'user_id'        => Auth::id(),
+                'customer_id'    => $validated['customer_id'],
+                'invoice_no'     => $validated['invoice_no'],
+                'ref_no'         => $validated['ref_no'] ?? null,
+                'invoice_date'   => $validated['invoice_date'],
+                'due_date'       => $validated['due_date'] ?? null,
+                'currency'       => $validated['currency'],
+                'subtotal'       => $subtotal,
+                'discount_total' => $validated['discount_total'] ?? 0,
+                'extra_discount' => $validated['extra_discount'] ?? 0,
+                'shipping_cost'  => $validated['shipping_cost'] ?? 0,
+                'tax_total'      => $validated['tax_total'] ?? 0,
+                'grand_total'    => $subtotal
+                    - ($validated['discount_total'] ?? 0)
+                    - ($validated['extra_discount'] ?? 0)
+                    + ($validated['shipping_cost'] ?? 0)
+                    + ($validated['tax_total'] ?? 0),
+                'custom_labels'  => $validated['custom_labels'] ?? null,
+                'signature_path' => $validated['signature_path'] ?? null,
+                'status'         => $validated['status'],
+            ]);
+
+            foreach ($validated['items'] as $item) {
+                InvoiceItem::create([
+                    'invoice_id'  => $invoice->id,
+                    'product_id'  => $item['product_id'] ?? null,
+                    'description' => $item['description'],
+                    'quantity'    => $item['quantity'],
+                    'unit'        => $item['unit'],
+                    'price'       => $item['price'],
+                    'discount'    => $item['discount'] ?? 0,
+                    'tax'         => $item['tax'] ?? 0,
+                    'total'       => ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0) + ($item['tax'] ?? 0),
+                ]);
+
+                if ($invoice->status === 'paid' && isset($item['product_id'])) {
+                    $product = Product::find($item['product_id']);
+                    if ($product) {
+                        $deductQty = $item['unit'] === 'carton'
+                            ? $item['quantity'] * $product->pieces_per_carton
+                            : $item['quantity'];
+                        $product->stocks()->decrement('quantity_pcs', $deductQty);
+                    }
+                }
+            }
+
+            return redirect()->route('invoices.show', $invoice->id)
+                ->with('success', 'Invoice berhasil dibuat!');
+        });
+    }
+
+    /**
+     * Show detail invoice
+     */
+    public function show(Invoice $invoice)
+    {
+        $invoice->load('items.product', 'customer', 'user', 'company');
+
+        return inertia('Invoices/Show', [
+            'invoice' => $invoice,
+        ]);
+    }
+
+    /**
+     * Cetak invoice
+     */
+    public function print(Invoice $invoice)
+    {
+        $invoice->load('items.product', 'customer', 'user', 'company');
+
+        return inertia('Invoices/Print', [
+            'invoice' => $invoice,
+        ]);
+    }
+
+    /**
+     * Helper untuk role finance
+     */
+    private function authorizeFinance()
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        if (!$user->isFinance()) {
+            abort(403, 'Hanya Finance (sales) yang boleh melakukan aksi ini.');
+        }
     }
 }

@@ -24,7 +24,6 @@ class Invoice extends Model
         'tax_total',
         'grand_total',
         'custom_labels',
-        'logo_path',
         'signature_path',
         'status',
     ];

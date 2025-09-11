@@ -4,62 +4,90 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class CustomerController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        $this->authorizeFinance();
+
+        $customers = Customer::paginate(20);
+
+        return inertia('Customers/Index', [
+            'customers' => $customers,
+        ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        //
+        $this->authorizeFinance();
+
+        return inertia('Customers/Create');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $this->authorizeFinance();
+
+        $validated = $request->validate([
+            'name'           => 'required|string|max:255',
+            'phone'          => 'nullable|string|max:20',
+            'email'          => 'nullable|email|max:255',
+            'address'        => 'nullable|string',
+            'contact_person' => 'nullable|string|max:255',
+        ]);
+
+        Customer::create($validated);
+
+        return redirect()->route('customers.index')
+            ->with('success', 'Customer berhasil ditambahkan');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Customer $customer)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit(Customer $customer)
     {
-        //
+        $this->authorizeFinance();
+
+        return inertia('Customers/Edit', [
+            'customer' => $customer,
+        ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, Customer $customer)
     {
-        //
+        $this->authorizeFinance();
+
+        $validated = $request->validate([
+            'name'           => 'required|string|max:255',
+            'phone'          => 'nullable|string|max:20',
+            'email'          => 'nullable|email|max:255',
+            'address'        => 'nullable|string',
+            'contact_person' => 'nullable|string|max:255',
+        ]);
+
+        $customer->update($validated);
+
+        return redirect()->route('customers.index')
+            ->with('success', 'Customer berhasil diperbarui');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Customer $customer)
     {
-        //
+        $this->authorizeFinance();
+
+        $customer->delete();
+
+        return redirect()->route('customers.index')
+            ->with('success', 'Customer berhasil dihapus');
+    }
+
+    private function authorizeFinance()
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        if (!$user->isFinance()) {
+            abort(403, 'Hanya finance (sales) yang boleh mengelola customer.');
+        }
     }
 }

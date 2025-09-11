@@ -2,11 +2,28 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+/**
+ * App\Models\User
+ *
+ * @property int $id
+ * @property string $name
+ * @property string $email
+ * @property string|null $password
+ * @property string|null $role
+ * @property string|null $profile_photo
+ * @property \Illuminate\Support\Carbon|null $email_verified_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ *
+ * @property-read string|null $profile_photo_url
+ *
+ * @method bool isAdmin()
+ * @method bool isFinance()
+ */
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
@@ -39,7 +56,7 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
+     * The attributes that should be cast.
      *
      * @return array<string, string>
      */
@@ -50,7 +67,6 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
-
 
     // cek user role
     public function isFinance(): bool
@@ -71,5 +87,4 @@ class User extends Authenticatable
     }
 
     protected $appends = ['profile_photo_url'];
-
 }

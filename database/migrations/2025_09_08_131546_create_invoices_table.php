@@ -31,8 +31,7 @@ return new class extends Migration
             $table->decimal('grand_total', 18, 2)->default(0);
 
             $table->json('custom_labels')->nullable();
-            $table->string('logo_path')->nullable();       // logo custom
-            $table->string('signature_path')->nullable();  // tanda tangan khusus
+            $table->string('signature_path')->nullable();
 
             $table->enum('status', ['draft', 'printed', 'sent', 'paid', 'cancelled'])->default('draft');
             $table->timestamps();

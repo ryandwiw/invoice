@@ -4,62 +4,64 @@ namespace App\Http\Controllers;
 
 use App\Models\Company;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class CompanyController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        $this->authorizeAdmin();
+
+        $company = Company::first(); // biasanya cuma 1 perusahaan
+        return inertia('Company/Index', [
+            'company' => $company,
+        ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function edit()
     {
-        //
+        $this->authorizeAdmin();
+
+        $company = Company::first();
+        return inertia('Company/Edit', [
+            'company' => $company,
+        ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function update(Request $request)
     {
-        //
+        $this->authorizeAdmin();
+
+        $validated = $request->validate([
+            'name'          => 'required|string|max:255',
+            'address'       => 'nullable|string',
+            'phone'         => 'nullable|string|max:20',
+            'email'         => 'nullable|email|max:255',
+            'logo_path'     => 'nullable|file|image|max:2048',
+            'signature_path'=> 'nullable|file|image|max:2048',
+        ]);
+
+        $company = Company::firstOrNew();
+
+        if ($request->hasFile('logo_path')) {
+            $validated['logo_path'] = $request->file('logo_path')->store('logos', 'public');
+        }
+        if ($request->hasFile('signature_path')) {
+            $validated['signature_path'] = $request->file('signature_path')->store('signatures', 'public');
+        }
+
+        $company->fill($validated)->save();
+
+        return redirect()->route('company.index')->with('success', 'Data perusahaan berhasil diperbarui');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Company $company)
+    private function authorizeAdmin()
     {
-        //
-    }
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Company $company)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Company $company)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Company $company)
-    {
-        //
+        if (!$user->isAdmin()) {
+            abort(403, 'Hanya admin yang boleh mengelola perusahaan.');
+        }
     }
 }
