@@ -1,9 +1,49 @@
 <?php
 
-use App\Http\Controllers\InvoiceController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Middleware\CheckRole;
 
-Route::middleware(['auth', CheckRole::class.':finance'])->group(function () {
-    Route::resource('invoices', InvoiceController::class);
+// ===========================
+// Auth Middleware
+// ===========================
+Route::middleware(['auth'])->group(function () {
+
+    // ===========================
+    // Company (Admin Only)
+    // ===========================
+    Route::middleware(CheckRole::class.':admin')->group(function () {
+        Route::resource('companies', CompanyController::class);
+    });
+
+    // ===========================
+    // Products (Admin Only)
+    // ===========================
+    Route::middleware(CheckRole::class.':admin')->group(function () {
+        Route::resource('products', ProductController::class);
+    });
+
+    // ===========================
+    // Customers (Finance / Sales)
+    // ===========================
+    Route::middleware(CheckRole::class.':finance')->group(function () {
+        Route::resource('customers', CustomerController::class);
+    });
+
+    // ===========================
+    // Invoices (Finance / Sales)
+    // ===========================
+    Route::middleware(CheckRole::class.':finance')->group(function () {
+        Route::get('invoices/{invoice}/print', [InvoiceController::class, 'print'])
+            ->name('invoices.print');
+
+        Route::post('invoices/preview', [InvoiceController::class, 'preview'])
+            ->name('invoices.preview');
+
+        Route::resource('invoices', InvoiceController::class);
+    });
+
 });

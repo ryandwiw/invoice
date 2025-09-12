@@ -71,6 +71,16 @@ class CustomerController extends Controller
             ->with('success', 'Customer berhasil diperbarui');
     }
 
+    public function show(Customer $customer)
+    {
+        $this->authorizeFinance();
+
+        return inertia('Customers/Show', [
+            'customer' => $customer,
+        ]);
+    }
+
+
     public function destroy(Customer $customer)
     {
         $this->authorizeFinance();
@@ -84,9 +94,10 @@ class CustomerController extends Controller
     private function authorizeFinance()
     {
         /** @var \App\Models\User $user */
+
         $user = Auth::user();
 
-        if (!$user->isFinance()) {
+        if (!$user || !$user->isFinance()) {
             abort(403, 'Hanya finance (sales) yang boleh mengelola customer.');
         }
     }

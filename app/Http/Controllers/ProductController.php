@@ -12,12 +12,7 @@ class ProductController extends Controller
 {
     public function index()
     {
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
-
-        if (!$user->isAdmin()) {
-            abort(403, 'Hanya admin yang boleh mengakses produk.');
-        }
+        $this->authorizeAdmin();
 
         $products = Product::with(['prices', 'stocks'])->paginate(20);
 
@@ -41,7 +36,7 @@ class ProductController extends Controller
             'sku'              => 'required|string|unique:products,sku',
             'name'             => 'required|string|max:255',
             'description'      => 'nullable|string',
-            'pieces_per_carton'=> 'required|integer|min:1',
+            'pieces_per_carton' => 'required|integer|min:1',
             'prices'           => 'required|array|min:1',
             'prices.*.label'   => 'required|string',
             'prices.*.unit'    => 'required|string|in:pcs,carton',
@@ -53,7 +48,7 @@ class ProductController extends Controller
             'sku'              => $validated['sku'],
             'name'             => $validated['name'],
             'description'      => $validated['description'] ?? null,
-            'pieces_per_carton'=> $validated['pieces_per_carton'],
+            'pieces_per_carton' => $validated['pieces_per_carton'],
         ]);
 
         foreach ($validated['prices'] as $price) {
@@ -92,7 +87,7 @@ class ProductController extends Controller
         $validated = $request->validate([
             'name'             => 'required|string|max:255',
             'description'      => 'nullable|string',
-            'pieces_per_carton'=> 'required|integer|min:1',
+            'pieces_per_carton' => 'required|integer|min:1',
             'prices'           => 'nullable|array',
             'stock_quantity'   => 'nullable|integer|min:0',
         ]);
@@ -100,7 +95,7 @@ class ProductController extends Controller
         $product->update([
             'name'             => $validated['name'],
             'description'      => $validated['description'] ?? null,
-            'pieces_per_carton'=> $validated['pieces_per_carton'],
+            'pieces_per_carton' => $validated['pieces_per_carton'],
         ]);
 
         if (!empty($validated['stock_quantity'])) {
@@ -112,6 +107,18 @@ class ProductController extends Controller
         return redirect()->route('products.index')
             ->with('success', 'Produk berhasil diperbarui');
     }
+
+    public function show(Product $product)
+    {
+        $this->authorizeAdmin();
+
+        $product->load('prices', 'stocks');
+
+        return inertia('Products/Show', [
+            'product' => $product,
+        ]);
+    }
+
 
     public function destroy(Product $product)
     {
@@ -126,10 +133,11 @@ class ProductController extends Controller
     private function authorizeAdmin()
     {
         /** @var \App\Models\User $user */
+
         $user = Auth::user();
 
-        if (!$user->isAdmin()) {
-            abort(403, 'Hanya admin yang boleh melakukan aksi ini.');
+        if (!$user || !$user->isAdmin()) {
+            abort(403, 'Hanya admin yang boleh mengelola produk.');
         }
     }
 }
