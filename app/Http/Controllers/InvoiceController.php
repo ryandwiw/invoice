@@ -116,11 +116,15 @@ class InvoiceController extends Controller
 
         $validated = $this->validateInvoice($request, $invoice->id);
 
-        // ✅ Simpan file tanda tangan baru
+        // ✅ Simpan file tanda tangan baru kalau ada
         if ($request->hasFile('signature_path')) {
             $validated['signature_path'] = $request->file('signature_path')
                 ->store('signatures', 'public');
+        } else {
+            // 🚀 pertahankan path lama
+            $validated['signature_path'] = $invoice->signature_path;
         }
+
 
         return DB::transaction(function () use ($validated, $invoice) {
             $this->updateInvoiceData($invoice, $validated);

@@ -11,8 +11,8 @@ export default function Edit() {
         company_id: invoice.company_id || company?.id || null,
         customer_id: invoice.customer_id || "",
         invoice_no: invoice.invoice_no || "",
-        invoice_date: invoice.invoice_date || new Date().toISOString().slice(0, 10),
-        due_date: invoice.due_date || "",
+        invoice_date: invoice.invoice_date ? invoice.invoice_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        due_date: invoice.due_date ? invoice.due_date.slice(0, 10) : "",
         currency: invoice.currency || "IDR",
         keterangan: invoice.keterangan || "",
         terms: invoice.terms || "",
@@ -24,8 +24,8 @@ export default function Edit() {
         status: invoice.status || "draft",
         items: invoice.items.map((i) => ({
             product_id: i.product_id,
-            price_id: i.price_id || "",     // ✅ jangan dipaksa null
-            unit: i.unit || "-",              // ✅ default kalau kosong
+            price_id: i.price_id || "",
+            unit: i.unit || "-",
             quantity: i.quantity,
             price: i.price,
             discount: i.discount,
@@ -34,6 +34,7 @@ export default function Edit() {
             total: i.total,
         })) || [],
     });
+
 
     const [previewData, setPreviewData] = useState(null);
 
@@ -204,7 +205,10 @@ export default function Edit() {
         // file tanda tangan (opsional)
         if (data.signature_path instanceof File) {
             formData.append("signature_path", data.signature_path);
+        } else if (typeof data.signature_path === "string" && data.signature_path !== "") {
+            formData.append("old_signature_path", data.signature_path);
         }
+
 
         // method override biar tetap PUT
         formData.append("_method", "put");
@@ -401,14 +405,16 @@ export default function Edit() {
                                             </div>
                                         </td>
                                         <td>
+
                                             <select
-                                                value={item.tax}   // ✅
-                                                onChange={(e) => updateItem(index, "tax", e.target.value)}
+                                                value={Number(item.tax)}   // 🚀 pastikan number
+                                                onChange={(e) => updateItem(index, "tax", Number(e.target.value))}
                                             >
-                                                <option value="0">0%</option>
-                                                <option value="11">11% PPN</option>
-                                                <option value="12">12% PPN</option>
+                                                <option value={0}>0%</option>
+                                                <option value={11}>11% PPN</option>
+                                                <option value={12}>12% PPN</option>
                                             </select>
+
                                         </td>
                                         <td className="text-right">{item.total.toLocaleString()}</td>
                                         <td>
@@ -490,16 +496,24 @@ export default function Edit() {
                 <div className="form-control">
                     <label className="label">Tanda Tangan</label>
 
-                    {/* Preview lama */}
-                    {typeof invoice.signature_path === "string" && (
+                    {data.signature_path && (
                         <div className="mb-2">
-                            <img
-                                src={`/storage/${invoice.signature_path}`}
-                                alt="Existing Signature"
-                                className="h-16"
-                            />
+                            {data.signature_path instanceof File ? (
+                                <img
+                                    src={URL.createObjectURL(data.signature_path)}
+                                    alt="New Signature"
+                                    className="h-16"
+                                />
+                            ) : (
+                                <img
+                                    src={`/storage/${data.signature_path}`}
+                                    alt="Existing Signature"
+                                    className="h-16"
+                                />
+                            )}
                         </div>
                     )}
+
 
                     {/* Upload baru */}
                     <input
