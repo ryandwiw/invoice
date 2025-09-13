@@ -31,13 +31,7 @@ class CompanyController extends Controller
     {
         $this->authorizeAdmin();
 
-        $validated = $request->validate([
-            'name'      => 'required|string|max:255',
-            'address'   => 'nullable|string',
-            'phone'     => 'nullable|string|max:20',
-            'email'     => 'nullable|email|max:255',
-            'logo_path' => 'nullable|file|image|max:2048',
-        ]);
+        $validated = $request->validate($this->validationRules());
 
         if ($request->hasFile('logo_path')) {
             $validated['logo_path'] = $request->file('logo_path')->store('logos', 'public');
@@ -71,13 +65,7 @@ class CompanyController extends Controller
     {
         $this->authorizeAdmin();
 
-        $validated = $request->validate([
-            'name'      => 'required|string|max:255',
-            'address'   => 'nullable|string',
-            'phone'     => 'nullable|string|max:20',
-            'email'     => 'nullable|email|max:255',
-            'logo_path' => 'nullable|file|image|max:2048',
-        ]);
+        $validated = $request->validate($this->validationRules(true));
 
         if ($request->hasFile('logo_path')) {
             if ($company->logo_path && Storage::disk('public')->exists($company->logo_path)) {
@@ -116,5 +104,26 @@ class CompanyController extends Controller
         if (!$user || !$user->isAdmin()) {
             abort(403, 'Hanya admin yang boleh mengelola perusahaan.');
         }
+    }
+
+    private function validationRules($isUpdate = false): array
+    {
+        $rules = [
+            'name'        => 'required|string|max:255',
+            'address'     => 'nullable|string|max:255',
+            'city'        => 'nullable|regex:/^[a-zA-Z\s]+$/|max:255',
+            'province'    => 'nullable|regex:/^[a-zA-Z\s]+$/|max:255',
+            'postal_code' => 'nullable|regex:/^[0-9]+$/|max:10',
+            'country'     => 'nullable|string|max:100',
+            'phone'       => ['nullable', 'regex:/^(0|62)[0-9]{8,13}$/'],
+            'email'       => 'nullable|email|max:255',
+            'logo_path'   => 'nullable|file|mimes:jpg,jpeg,png,gif|max:2048',
+        ];
+
+        if ($isUpdate) {
+            $rules['address'] = 'nullable|string';
+        }
+
+        return $rules;
     }
 }

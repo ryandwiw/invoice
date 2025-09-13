@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class CustomerController extends Controller
 {
@@ -30,18 +31,25 @@ class CustomerController extends Controller
     {
         $this->authorizeFinance();
 
-        $validated = $request->validate([
-            'name'           => 'required|string|max:255',
-            'phone'          => 'nullable|string|max:20',
-            'email'          => 'nullable|email|max:255',
-            'address'        => 'nullable|string',
-            'contact_person' => 'nullable|string|max:255',
-        ]);
+        $validated = $request->validate($this->validationRules());
+
+        if ($request->hasFile('logo_path')) {
+            $validated['logo_path'] = $request->file('logo_path')->store('logos', 'public');
+        }
 
         Customer::create($validated);
 
         return redirect()->route('customers.index')
             ->with('success', 'Customer berhasil ditambahkan');
+    }
+
+    public function show(Customer $customer)
+    {
+        $this->authorizeFinance();
+
+        return inertia('Customers/Show', [
+            'customer' => $customer,
+        ]);
     }
 
     public function edit(Customer $customer)
@@ -57,33 +65,30 @@ class CustomerController extends Controller
     {
         $this->authorizeFinance();
 
-        $validated = $request->validate([
-            'name'           => 'required|string|max:255',
-            'phone'          => 'nullable|string|max:20',
-            'email'          => 'nullable|email|max:255',
-            'address'        => 'nullable|string',
-            'contact_person' => 'nullable|string|max:255',
-        ]);
+        $validated = $request->validate($this->validationRules(true));
+
+        if ($request->hasFile('logo_path')) {
+            if ($customer->logo_path && Storage::disk('public')->exists($customer->logo_path)) {
+                Storage::disk('public')->delete($customer->logo_path);
+            }
+            $validated['logo_path'] = $request->file('logo_path')->store('logos', 'public');
+        } else {
+            unset($validated['logo_path']);
+        }
 
         $customer->update($validated);
 
         return redirect()->route('customers.index')
-            ->with('success', 'Customer berhasil diperbarui');
+            ->with('success', 'Data customer berhasil diperbarui');
     }
-
-    public function show(Customer $customer)
-    {
-        $this->authorizeFinance();
-
-        return inertia('Customers/Show', [
-            'customer' => $customer,
-        ]);
-    }
-
 
     public function destroy(Customer $customer)
     {
         $this->authorizeFinance();
+
+        if ($customer->logo_path && Storage::disk('public')->exists($customer->logo_path)) {
+            Storage::disk('public')->delete($customer->logo_path);
+        }
 
         $customer->delete();
 
@@ -94,11 +99,31 @@ class CustomerController extends Controller
     private function authorizeFinance()
     {
         /** @var \App\Models\User $user */
-
         $user = Auth::user();
 
         if (!$user || !$user->isFinance()) {
-            abort(403, 'Hanya finance (sales) yang boleh mengelola customer.');
+            abort(403, 'Hanya Finance yang boleh mengelola customer.');
         }
+    }
+
+    private function validationRules($isUpdate = false): array
+    {
+        $rules = [
+            'name'        => 'required|string|max:255',
+            'address'     => 'nullable|string|max:255',
+            'city'        => 'nullable|regex:/^[a-zA-Z\s]+$/|max:255',
+            'province'    => 'nullable|regex:/^[a-zA-Z\s]+$/|max:255',
+            'postal_code' => 'nullable|regex:/^[0-9]+$/|max:10',
+            'country'     => 'nullable|string|max:100',
+            'phone'       => ['nullable', 'regex:/^(0|62)[0-9]{8,13}$/'],
+            'email'       => 'nullable|email|max:255',
+            'logo_path'   => 'nullable|file|mimes:jpg,jpeg,png,gif|max:2048',
+        ];
+
+        if ($isUpdate) {
+            $rules['address'] = 'nullable|string';
+        }
+
+        return $rules;
     }
 }

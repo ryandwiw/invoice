@@ -13,10 +13,15 @@ class Company extends Model
     protected $fillable = [
         'name',
         'address',
+        'city',
+        'province',
+        'postal_code',
+        'country',
         'phone',
         'email',
         'logo_path',
     ];
+
 
     protected $appends = ['logo_url'];
 

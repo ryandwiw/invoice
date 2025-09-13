@@ -8,10 +8,14 @@ class Customer extends Model
 {
     protected $fillable = [
         'name',
+        'address',
+        'city',
+        'province',
+        'postal_code',
+        'country',
         'phone',
         'email',
-        'address',
-        'contact_person',
+        'logo_path',
     ];
 
     public function invoices()
