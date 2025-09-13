@@ -11,6 +11,7 @@ class ProductPrice extends Model
         'label',
         'unit',
         'price',
+        'min_qty',
     ];
 
     public function product()

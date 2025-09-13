@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('invoice_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->nullable()->constrained()->nullOnDelete();
-
+            $table->string('discount_type')->default('percent');
             $table->text('description')->nullable();
             $table->decimal('quantity', 18, 2)->default(0);
             $table->string('unit');

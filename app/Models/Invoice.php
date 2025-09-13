@@ -22,6 +22,8 @@ class Invoice extends Model
         'extra_discount',
         'shipping_cost',
         'tax_total',
+        'keterangan',
+        'terms',
         'grand_total',
         'custom_labels',
         'signature_path',
@@ -33,6 +35,19 @@ class Invoice extends Model
         'invoice_date' => 'date',
         'due_date' => 'date',
     ];
+
+
+    protected $appends = ['signature_url'];
+
+    public function getSignatureUrlAttribute()
+    {
+        if (!$this->signature_path) {
+            return null;
+        }
+        return asset('storage/' . $this->signature_path);
+    }
+
+
 
     public function company()
     {

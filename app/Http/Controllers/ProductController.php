@@ -14,7 +14,7 @@ class ProductController extends Controller
     {
         $this->authorizeAdmin();
 
-        $products = Product::with(['prices', 'stocks'])->paginate(20);
+        $products = Product::with(['prices', 'stock'])->paginate(20);
 
         return inertia('Products/Index', [
             'products' => $products,
@@ -56,6 +56,7 @@ class ProductController extends Controller
                 'product_id' => $product->id,
                 'label'      => $price['label'],
                 'unit'       => $price['unit'],
+                'min_qty'    => $price['min_qty'] ?? 1,
                 'price'      => $price['price'],
             ]);
         }
@@ -73,7 +74,7 @@ class ProductController extends Controller
     {
         $this->authorizeAdmin();
 
-        $product->load('prices', 'stocks');
+        $product->load('prices', 'stock');
 
         return inertia('Products/Edit', [
             'product' => $product,
@@ -85,34 +86,62 @@ class ProductController extends Controller
         $this->authorizeAdmin();
 
         $validated = $request->validate([
-            'name'             => 'required|string|max:255',
-            'description'      => 'nullable|string',
+            'name'              => 'required|string|max:255',
+            'description'       => 'nullable|string',
             'pieces_per_carton' => 'required|integer|min:1',
-            'prices'           => 'nullable|array',
-            'stock_quantity'   => 'nullable|integer|min:0',
+            'prices'            => 'nullable|array',
+            'prices.*.label'    => 'required|string',
+            'prices.*.unit'     => 'required|string|in:pcs,carton',
+            'prices.*.price'    => 'required|numeric|min:0',
+            'prices.*.min_qty'  => 'nullable|integer|min:1',
+            'stock_quantity'    => 'nullable|integer|min:0',
         ]);
 
         $product->update([
-            'name'             => $validated['name'],
-            'description'      => $validated['description'] ?? null,
+            'name'              => $validated['name'],
+            'description'       => $validated['description'] ?? null,
             'pieces_per_carton' => $validated['pieces_per_carton'],
         ]);
 
+        // Update harga
+        if (!empty($validated['prices'])) {
+            // Hapus harga lama
+            $product->prices()->delete();
+
+            // Tambahkan harga baru
+            foreach ($validated['prices'] as $price) {
+                $product->prices()->create([
+                    'label'    => $price['label'],
+                    'unit'     => $price['unit'],
+                    'price'    => $price['price'],
+                    'min_qty'  => $price['min_qty'] ?? 1,
+                ]);
+            }
+        }
+
+        // Update stok
         if (!empty($validated['stock_quantity'])) {
-            $product->stocks()->update([
-                'quantity_pcs' => $validated['stock_quantity'],
-            ]);
+            if ($product->stock) {
+                $product->stock()->update([
+                    'quantity_pcs' => $validated['stock_quantity'],
+                ]);
+            } else {
+                $product->stock()->create([
+                    'quantity_pcs' => $validated['stock_quantity'],
+                ]);
+            }
         }
 
         return redirect()->route('products.index')
             ->with('success', 'Produk berhasil diperbarui');
     }
 
+
     public function show(Product $product)
     {
         $this->authorizeAdmin();
 
-        $product->load('prices', 'stocks');
+        $product->load('prices', 'stock');
 
         return inertia('Products/Show', [
             'product' => $product,

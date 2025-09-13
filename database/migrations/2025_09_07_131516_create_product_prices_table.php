@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('label'); // contoh: pcs, karton grosir
             $table->string('unit');  // pcs / carton
             $table->decimal('price', 18, 2);
+            $table->unsignedInteger('min_qty')->default(1);
             $table->timestamps();
         });
     }

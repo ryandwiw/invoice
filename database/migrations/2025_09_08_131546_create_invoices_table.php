@@ -30,6 +30,9 @@ return new class extends Migration
             $table->decimal('tax_total', 18, 2)->default(0);
             $table->decimal('grand_total', 18, 2)->default(0);
 
+            $table->text('keterangan')->nullable();
+            $table->text('terms')->nullable();
+
             $table->json('custom_labels')->nullable();
             $table->string('signature_path')->nullable();
 
