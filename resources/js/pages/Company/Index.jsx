@@ -1,20 +1,40 @@
-import React from "react";
-import { Link, usePage, Head } from "@inertiajs/react";
+import React, { useState } from "react";
+import { Link, usePage, Head, router } from "@inertiajs/react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Eye, Pencil, Trash2, Plus } from "lucide-react";
 import ModernDashboardLayout from "@/layouts/DashboardLayout";
 
 export default function Index({ companies }) {
     const { flash } = usePage().props;
+    const [selectedAddress, setSelectedAddress] = useState(null);
+
+    const handleDelete = (id) => {
+        if (confirm("Yakin ingin menghapus perusahaan ini?")) {
+            router.delete(route("companies.destroy", id));
+        }
+    };
 
     return (
         <ModernDashboardLayout>
-            <Head title="Dashboard" />
-            <div className="max-w-5xl mx-auto p-6">
-                <div className="flex justify-between items-center mb-4">
-                    <h1 className="text-2xl font-bold">Daftar Perusahaan</h1>
-                    <Link href={route("companies.create")} className="btn btn-primary">
-                        + Tambah Perusahaan
+            <Head title="Daftar Perusahaan" />
+            <div className="max-w-7xl mx-auto p-4">
+                {/* Header */}
+                <motion.div
+                    initial={{ y: -20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ duration: 0.4 }}
+                    className="flex items-center justify-between mb-6"
+                >
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 bg-clip-text text-transparent flex items-center gap-2">
+                        ✨ Daftar Perusahaan
+                    </h1>
+                    <Link
+                        href={route("companies.create")}
+                        className="btn btn-primary flex items-center gap-2 shadow-md"
+                    >
+                        <Plus className="w-4 h-4" /> Tambah Perusahaan
                     </Link>
-                </div>
+                </motion.div>
 
                 {flash?.success && (
                     <div className="alert alert-success mb-4">
@@ -22,97 +42,114 @@ export default function Index({ companies }) {
                     </div>
                 )}
 
-                <div className="overflow-x-auto">
-                    <table className="table table-zebra w-full">
+                {/* Tabel Perusahaan */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="card bg-base-100/50 backdrop-blur-lg shadow-xl border border-base-300 p-4 overflow-x-auto"
+                >
+                    <table className="table w-full">
                         <thead>
                             <tr>
-                                <th>#</th>
-                                <th>Logo</th>
                                 <th>Nama</th>
-                                <th>Kota</th>
+                                <th>Alamat</th>
                                 <th>Telepon</th>
                                 <th>Email</th>
-                                <th>Aksi</th>
+                                <th className="text-right">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
                             {companies.data.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="text-center py-4">
+                                    <td colSpan="7" className="text-center py-6 text-gray-400">
                                         Belum ada data perusahaan.
                                     </td>
                                 </tr>
                             ) : (
-                                companies.data.map((company, index) => (
-                                    <tr key={company.id}>
-                                        <td>{companies.from + index}</td>
-                                        <td>
-                                            {company.logo_path ? (
-                                                <img
-                                                    src={`/storage/${company.logo_path}`}
-                                                    alt="logo"
-                                                    className="w-12 h-12 rounded"
-                                                />
-                                            ) : (
-                                                <div className="w-12 h-12 bg-gray-200 flex items-center justify-center rounded">
-                                                    <span className="text-gray-500 text-xs">N/A</span>
-                                                </div>
-                                            )}
+                                companies.data.map((company) => (
+                                    <tr
+                                        key={company.id}
+                                        className="transition-colors duration-200 hover:bg-primary/10"
+                                    >
+                                        <td className="font-semibold text-emerald-400">{company.name}</td>
+                                        <td
+                                            className="max-w-xs truncate text-blue-500 cursor-pointer"
+                                            onClick={() => setSelectedAddress(company.address)}
+                                            title="Klik untuk melihat lengkap"
+                                        >
+                                            {company.address || "-"}
                                         </td>
-                                        <td>{company.name}</td>
-                                        <td>{company.city}</td>
-                                        <td>{company.phone}</td>
-                                        <td>{company.email}</td>
-                                        <td className="flex gap-2">
+                                        <td>{company.phone || "-"}</td>
+                                        <td>{company.email || "-"}</td>
+                                        <td className="flex justify-end gap-2">
                                             <Link
                                                 href={route("companies.show", company.id)}
-                                                className="btn btn-sm btn-info"
+                                                className="btn btn-xs btn-ghost flex items-center gap-1"
                                             >
-                                                Detail
+                                                <Eye className="w-4 h-4" /> Detail
                                             </Link>
                                             <Link
                                                 href={route("companies.edit", company.id)}
-                                                className="btn btn-sm btn-warning"
+                                                className="btn btn-xs btn-accent flex items-center gap-1"
                                             >
-                                                Edit
+                                                <Pencil className="w-4 h-4" /> Edit
                                             </Link>
-                                            <Link
-                                                as="button"
-                                                method="delete"
-                                                href={route("companies.destroy", company.id)}
-                                                className="btn btn-sm btn-error"
-                                                onClick={(e) => {
-                                                    if (!confirm("Yakin hapus perusahaan ini?")) {
-                                                        e.preventDefault();
-                                                    }
-                                                }}
+                                            <button
+                                                onClick={() => handleDelete(company.id)}
+                                                className="btn btn-xs btn-error flex items-center gap-1"
                                             >
-                                                Hapus
-                                            </Link>
+                                                <Trash2 className="w-4 h-4" /> Hapus
+                                            </button>
                                         </td>
                                     </tr>
                                 ))
                             )}
                         </tbody>
                     </table>
-                </div>
+                </motion.div>
 
                 {/* Pagination */}
-                <div className="flex justify-center mt-4">
-                    <div className="join">
-                        {companies.links.map((link, idx) => (
-                            <Link
-                                key={idx}
-                                href={link.url || "#"}
-                                className={`join-item btn btn-sm ${link.active ? "btn-primary" : ""} ${!link.url ? "btn-disabled" : ""
-                                    }`}
-                                dangerouslySetInnerHTML={{ __html: link.label }}
-                            />
-                        ))}
-                    </div>
+                <div className="mt-6 flex justify-center gap-2">
+                    {companies.links.map((link, idx) => (
+                        <button
+                            key={idx}
+                            disabled={!link.url}
+                            onClick={() => link.url && router.get(link.url)}
+                            className={`btn btn-sm ${link.active ? "btn-primary" : "btn-outline btn-secondary"}`}
+                            dangerouslySetInnerHTML={{ __html: link.label }}
+                        />
+                    ))}
                 </div>
             </div>
-        </ModernDashboardLayout>
 
+            <AnimatePresence>
+                {selectedAddress && (
+                    <motion.div
+                        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <motion.div
+                            className="bg-base-100 p-6 rounded-lg shadow-lg max-w-md w-full"
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.8, opacity: 0 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                        >
+                            <h2 className="font-bold text-lg mb-4">Alamat Lengkap</h2>
+                            <p className="break-words">{selectedAddress}</p>
+                            <button
+                                className="btn btn-sm btn-primary mt-4"
+                                onClick={() => setSelectedAddress(null)}
+                            >
+                                Tutup
+                            </button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </ModernDashboardLayout>
     );
 }

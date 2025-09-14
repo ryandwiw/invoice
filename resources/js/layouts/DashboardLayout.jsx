@@ -34,7 +34,7 @@ export default function ModernDashboardLayout({ children }) {
         { icon: <BarChart3 size={22} />, label: "Produk", key: "product", url: route("products.index"), roles: ["admin"] },
         { icon: <BarChart3 size={22} />, label: "Perusahaan", key: "company", url: route("companies.index"), roles: ["admin"] },
         { icon: <Settings size={22} />, label: "Settings", key: "settings", url: route("profile.edit"), roles: ["admin", "finance"], pattern: /^\/settings/, },
-        { icon: <HelpCircle size={22} />, label: "Help", key: "help", url: route("profile.edit"), roles: ["admin", "finance"] },
+        { icon: <HelpCircle size={22} />, label: "Help", key: "help", url: route("help"), roles: ["admin", "finance"] },
         { icon: <LogOut size={22} />, label: "Logout", key: "logout", url: route("logout"), roles: ["admin", "finance"] },
     ];
 
