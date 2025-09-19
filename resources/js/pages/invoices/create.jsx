@@ -175,18 +175,18 @@ export default function Create() {
         <ModernDashboardLayout>
             <Head title="Buat Invoice Baru" />
 
-            <div className="max-w-6xl mx-auto p-4">
+            <div className="max-w-6xl p-4 mx-auto">
                 <motion.div
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
-                    className="card bg-base-100/40 backdrop-blur-md border border-base-300 shadow-xl p-6 rounded-2xl"
+                    className="p-6 border shadow-xl card bg-base-100/40 backdrop-blur-md border-base-300 rounded-2xl"
                 >
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-3">
                             <FileText className="w-8 h-8 text-gradient" />
                             <div>
-                                <h1 className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400">
+                                <h1 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400">
                                     Buat Invoice Baru
                                 </h1>
                                 <p className="text-sm opacity-70">
@@ -199,13 +199,13 @@ export default function Create() {
                             <button
                                 type="button"
                                 onClick={preview}
-                                className="btn btn-ghost btn-sm flex items-center gap-2"
+                                className="flex items-center gap-2 btn btn-ghost btn-sm"
                             >
                                 <Eye className="w-4 h-4" /> Preview
                             </button>
                             <button
                                 onClick={() => window.history.back()}
-                                className="btn btn-outline btn-sm flex items-center gap-2"
+                                className="flex items-center gap-2 btn btn-outline btn-sm"
                                 type="button"
                             >
                                 <ChevronLeft className="w-4 h-4" /> Kembali
@@ -218,19 +218,19 @@ export default function Create() {
                         <motion.div
                             layout
                             whileHover={{ scale: 1.01 }}
-                            className="grid grid-cols-1 md:grid-cols-3 gap-4"
+                            className="grid grid-cols-1 gap-4 md:grid-cols-3"
                         >
                             <div className="col-span-2 space-y-4">
                                 {/* Customer */}
                                 <div className="form-control">
-                                    <label className="label flex items-center gap-2">
+                                    <label className="flex items-center gap-2 label">
                                         <User className="w-4 h-4" />
                                         <span className="label-text">Pelanggan</span>
                                     </label>
                                     <select
                                         value={data.customer_id}
                                         onChange={(e) => setData("customer_id", e.target.value)}
-                                        className="select select-bordered select-primary w-full"
+                                        className="w-full select select-bordered select-primary"
                                     >
                                         <option value="">-- Pilih Customer --</option>
                                         {customers?.map((c) => (
@@ -279,14 +279,14 @@ export default function Create() {
                                 {/* Notes & Terms (pindah ke atas sebelum items) */}
                                 <motion.div
                                     layout
-                                    className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                                    className="grid grid-cols-1 gap-4 md:grid-cols-2"
                                 >
                                     <div className="form-control">
                                         <label className="label">Keterangan</label>
                                         <textarea
                                             value={data.keterangan}
                                             onChange={(e) => setData("keterangan", e.target.value)}
-                                            className="textarea textarea-bordered h-24"
+                                            className="h-24 textarea textarea-bordered"
                                         />
                                     </div>
                                     <div className="form-control">
@@ -294,7 +294,7 @@ export default function Create() {
                                         <textarea
                                             value={data.terms}
                                             onChange={(e) => setData("terms", e.target.value)}
-                                            className="textarea textarea-bordered h-24"
+                                            className="h-24 textarea textarea-bordered"
                                         />
                                     </div>
                                 </motion.div>
@@ -302,7 +302,7 @@ export default function Create() {
 
                             {/* Sidebar summary & extras */}
                             <motion.div layout className="space-y-4">
-                                <div className="card p-4 bg-base-200/60 border border-base-300">
+                                <div className="p-4 border card bg-base-200/60 border-base-300">
                                     <div className="flex items-center justify-between mb-2">
                                         <h3 className="font-semibold">Ringkasan</h3>
                                         <div className="badge badge-outline">{data.currency}</div>
@@ -336,7 +336,7 @@ export default function Create() {
                                                 onChange={(e) =>
                                                     setData("shipping_cost", Number(e.target.value) || 0)
                                                 }
-                                                className="input input-bordered input-sm w-28 text-right"
+                                                className="text-right input input-bordered input-sm w-28"
                                             />
                                         </div>
 
@@ -348,7 +348,7 @@ export default function Create() {
                                                 onChange={(e) =>
                                                     setData("extra_discount", Number(e.target.value) || 0)
                                                 }
-                                                className="input input-bordered input-sm w-28 text-right"
+                                                className="text-right input input-bordered input-sm w-28"
                                             />
                                         </div>
 
@@ -363,15 +363,14 @@ export default function Create() {
                             </motion.div>
                         </motion.div>
 
-                        {/* Items (pindah ke paling bawah sebelum tanda tangan) */}
                         <div className="mt-2">
                             <div className="flex items-center justify-between mb-2">
-                                <h2 className="text-lg font-semibold flex items-center gap-2">
+                                <h2 className="flex items-center gap-2 text-lg font-semibold">
                                     <Grid className="w-5 h-5" /> Item Barang
                                 </h2>
                                 <button
                                     type="button"
-                                    className="btn btn-sm btn-outline flex items-center gap-2"
+                                    className="flex items-center gap-2 btn btn-sm btn-outline"
                                     onClick={addItem}
                                 >
                                     <Plus className="w-4 h-4" /> Tambah Item
@@ -407,7 +406,7 @@ export default function Create() {
                                                         onChange={(e) =>
                                                             updateItem(idx, "product_id", e.target.value)
                                                         }
-                                                        className="select select-bordered select-sm w-full"
+                                                        className="w-full select select-bordered select-sm"
                                                     >
                                                         <option value="">-- Produk --</option>
                                                         {products?.map((p) => (
@@ -446,7 +445,7 @@ export default function Create() {
                                                         onChange={(e) =>
                                                             updateItem(idx, "price", e.target.value)
                                                         }
-                                                        className="input input-bordered input-sm w-28 text-right"
+                                                        className="text-right input input-bordered input-sm w-28"
                                                     />
                                                 </td>
                                                 <td>
@@ -457,7 +456,7 @@ export default function Create() {
                                                         onChange={(e) =>
                                                             updateItem(idx, "quantity", e.target.value)
                                                         }
-                                                        className="input input-bordered input-sm w-20"
+                                                        className="w-20 input input-bordered input-sm"
                                                     />
                                                 </td>
                                                 <td>
@@ -468,7 +467,7 @@ export default function Create() {
                                                             onChange={(e) =>
                                                                 updateItem(idx, "discount", e.target.value)
                                                             }
-                                                            className="input input-bordered input-sm w-20"
+                                                            className="w-20 input input-bordered input-sm"
                                                         />
                                                         <select
                                                             value={item.discount_type}
@@ -479,7 +478,7 @@ export default function Create() {
                                                                     e.target.value
                                                                 )
                                                             }
-                                                            className="select select-bordered select-sm w-20"
+                                                            className="w-20 select select-bordered select-sm"
                                                         >
                                                             <option value="percent">%</option>
                                                             <option value="amount">Rp</option>
@@ -499,7 +498,7 @@ export default function Create() {
                                                         <option value="12">12% PPN</option>
                                                     </select>
                                                 </td>
-                                                <td className="text-right font-semibold">
+                                                <td className="font-semibold text-right">
                                                     {currencyFormat(item.total)}
                                                 </td>
                                                 <td>
@@ -517,7 +516,7 @@ export default function Create() {
                                             <tr>
                                                 <td
                                                     colSpan={8}
-                                                    className="text-center opacity-60 py-6"
+                                                    className="py-6 text-center opacity-60"
                                                 >
                                                     Belum ada item. Klik "Tambah Item" untuk memulai.
                                                 </td>
@@ -529,8 +528,8 @@ export default function Create() {
                         </div>
 
                         {/* Signature (paling bawah) */}
-                        <div className="card p-4 bg-base-200/50 border border-base-300">
-                            <div className="form-control mt-3">
+                        <div className="p-4 border card bg-base-200/50 border-base-300">
+                            <div className="mt-3 form-control">
                                 <label className="label">Tanda Tangan</label>
                                 <input
                                     type="file"
@@ -540,7 +539,7 @@ export default function Create() {
                                 />
                             </div>
 
-                            <div className="mt-4 flex justify-end gap-2">
+                            <div className="flex justify-end gap-2 mt-4">
                                 <button
                                     type="button"
                                     disabled={processing}
@@ -552,7 +551,7 @@ export default function Create() {
                                 <button
                                     type="submit"
                                     disabled={processing}
-                                    className="btn btn-primary btn-sm flex items-center gap-2"
+                                    className="flex items-center gap-2 btn btn-primary btn-sm"
                                 >
                                     <Save className="w-4 h-4" />{" "}
                                     {processing ? "Menyimpan..." : "Simpan Invoice"}

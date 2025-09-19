@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Storage;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -39,13 +40,21 @@ class Invoice extends Model
 
     protected $appends = ['signature_url'];
 
+    // public function getSignatureUrlAttribute()
+    // {
+    //     if (!$this->signature_path) {
+    //         return null;
+    //     }
+    //     return asset('storage/' . $this->signature_path);
+    // }
+
     public function getSignatureUrlAttribute()
     {
-        if (!$this->signature_path) {
-            return null;
-        }
-        return asset('storage/' . $this->signature_path);
+        return $this->signature_path
+            ? Storage::url($this->signature_path)
+            : null;
     }
+
 
 
 

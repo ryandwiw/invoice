@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Product;
+use App\Models\ProductPrice;
 use App\Models\Customer;
 use App\Models\Company;
 use Illuminate\Http\Request;
@@ -163,15 +164,19 @@ class InvoiceController extends Controller
             foreach ($invoice->items as $item) {
                 if (!empty($item->product_id)) {
                     $product = $item->product;
-                    if ($product && $product->stocks()->exists()) {
+                    if ($product && $product->stock) { // pakai relasi stock() (hasOne)
                         $multiplier = $item->unit_multiplier ?? 1;
                         $realQty = $item->quantity * $multiplier;
-                        $product->stocks()->decrement('quantity_pcs', $realQty);
+                        $decrementQty = max(0, (int) round($realQty));
+                        if ($decrementQty > 0) {
+                            $product->stock()->decrement('quantity_pcs', $decrementQty);
+                        }
                     }
                 }
             }
         }
     }
+
 
     private function authorizeFinance()
     {
@@ -204,75 +209,111 @@ class InvoiceController extends Controller
             'invoice_date'  => 'required|date',
             'due_date'      => 'nullable|date',
             'currency'      => 'required|string|max:10',
-            'keterangan' => 'nullable|string',
-            'terms' => 'nullable|string',
-            'discount_total' => 'nullable|numeric',
+            'keterangan'    => 'nullable|string',
+            'terms'         => 'nullable|string',
             'extra_discount' => 'nullable|numeric',
-            'shipping_cost'  => 'nullable|numeric',
-            'tax_total'      => 'nullable|numeric',
-            'items'         => 'required|array|min:1',
-            'items.*.product_id'   => 'required|exists:products,id',
-            'items.*.quantity'     => 'required|numeric|min:1',
-            'items.*.unit'         => 'nullable|string',
+            'shipping_cost' => 'nullable|numeric',
+            // items
+            'items'             => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.price_id'  => 'nullable|exists:product_prices,id',
+            'items.*.price'     => 'required|numeric|min:0',
+            'items.*.quantity'  => 'required|numeric|min:0',
+            'items.*.unit'      => 'nullable|string',
             'items.*.discount_type' => 'nullable|in:percent,amount',
-            'items.*.discount'     => 'nullable|numeric|min:0',
-            'items.*.tax'          => 'nullable|numeric|min:0',
-            'custom_labels'        => 'nullable|array',
-            'logo_path'            => 'nullable|string',
-            'signature_path' => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
-
-            // status tidak wajib → default draft
-            'status'               => 'nullable|in:draft,printed,sent',
+            'items.*.discount'  => 'nullable|numeric|min:0',
+            'items.*.tax'       => 'nullable|numeric|min:0',
+            'custom_labels'     => 'nullable|array',
+            'logo_path'         => 'nullable|string',
+            'signature_path'    => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
+            'status'            => 'nullable|in:draft,printed,sent,paid,cancelled',
         ]);
     }
 
     private function saveInvoiceData($validated)
     {
-        $subtotal = 0;
+        $subtotal = 0.0;
+        $discountTotal = 0.0;
+        $taxTotal = 0.0;
         $itemsData = [];
 
         foreach ($validated['items'] as $item) {
             $product = Product::with('prices')->find($item['product_id']);
-            $price = $product?->prices()->first()?->price ?? 0;
 
-            // hitung harga kotor (qty * harga satuan)
-            $lineBase = $item['quantity'] * $price;
-
-            // ✅ hitung diskon sesuai type
-            $discount = 0;
-            if (($item['discount_type'] ?? 'amount') === 'percent') {
-                $discount = $lineBase * ($item['discount'] ?? 0) / 100;
+            // Pilih harga: prioritas price_id -> request price -> product first price
+            $price = 0.0;
+            if (!empty($item['price_id'])) {
+                $priceRow = ProductPrice::find($item['price_id']);
+                if ($priceRow && $priceRow->product_id == $product->id) {
+                    $price = (float) $priceRow->price;
+                } else {
+                    // fallback ke request price kalau price_id tidak valid untuk product
+                    $price = (float) ($item['price'] ?? 0);
+                }
             } else {
-                $discount = $item['discount'] ?? 0;
+                $price = (float) ($item['price'] ?? ($product?->prices()->first()?->price ?? 0));
             }
 
-            // ✅ hitung setelah diskon
+            $qty = (float) ($item['quantity'] ?? 0);
+            $lineBase = $qty * $price;
+
+            // Diskon per baris
+            $discount = 0.0;
+            $discType = $item['discount_type'] ?? 'percent';
+            if ($discType === 'percent') {
+                $discount = $lineBase * ((float)($item['discount'] ?? 0) / 100);
+            } else {
+                $discount = (float)($item['discount'] ?? 0);
+            }
+
             $afterDiscount = $lineBase - $discount;
 
-            // ✅ hitung pajak (anggap %)
-            $tax = ($afterDiscount * ($item['tax'] ?? 0)) / 100;
+            // Pajak per baris (persen)
+            $taxPercent = (float)($item['tax'] ?? 0);
+            $tax = ($afterDiscount * $taxPercent) / 100;
 
-            // ✅ total akhir per baris
             $lineTotal = $afterDiscount + $tax;
 
-            $subtotal += $lineTotal;
+            // Akumulasi totals (subtotal adalah sum lineBase — konsisten dengan frontend)
+            $subtotal += $lineBase;
+            $discountTotal += $discount;
+            $taxTotal += $tax;
 
             $itemsData[] = [
                 'product_id'    => $item['product_id'],
-                'description'   => $item['description'] ?? $product->name,
-                'quantity'      => $item['quantity'],
-                'unit'          => $item['unit'] ?? $product->unit_default ?? '-',
+                'price_id'      => $item['price_id'] ?? null,
+                'description'   => $item['description'] ?? ($product->name ?? '-'),
+                'quantity'      => $qty,
+                'unit'          => $item['unit'] ?? ($product->prices()->first()?->unit ?? '-'),
                 'price'         => $price,
-                'discount'      => $item['discount'] ?? 0,
-                'discount_type' => $item['discount_type'] ?? 'amount',
-                'tax'           => $item['tax'] ?? 0,
+                'discount'      => (float)($item['discount'] ?? 0),
+                'discount_type' => $discType,
+                'tax'           => $taxPercent,
                 'total'         => $lineTotal,
             ];
         }
 
+        $extraDiscount = (float)($validated['extra_discount'] ?? 0);
+        $shippingCost  = (float)($validated['shipping_cost'] ?? 0);
 
-        $invoice = Invoice::create($this->extractInvoiceFields($validated, $subtotal));
+        $grandTotal = $subtotal
+            - $discountTotal
+            - $extraDiscount
+            + $shippingCost
+            + $taxTotal;
 
+        // Buat invoice (server menghitung totals sendiri — jangan pakai nilai total yang dikirim klien)
+        $invoice = Invoice::create(
+            $this->extractInvoiceFields(
+                $validated,
+                (float)$subtotal,
+                (float)$discountTotal,
+                (float)$taxTotal,
+                (float)$grandTotal
+            )
+        );
+
+        // Simpan item-item
         foreach ($itemsData as $data) {
             InvoiceItem::create(array_merge($data, ['invoice_id' => $invoice->id]));
         }
@@ -280,10 +321,9 @@ class InvoiceController extends Controller
         return $invoice;
     }
 
-    private function extractInvoiceFields($validated, $subtotal = null)
-    {
-        $subtotal = $subtotal ?? 0;
 
+    private function extractInvoiceFields($validated, $subtotal, $discountTotal, $taxTotal, $grandTotal)
+    {
         return [
             'company_id'     => $validated['company_id'],
             'user_id'        => Auth::id(),
@@ -294,17 +334,13 @@ class InvoiceController extends Controller
             'due_date'       => $validated['due_date'] ?? null,
             'currency'       => $validated['currency'],
             'subtotal'       => $subtotal,
-            'keterangan'     => $validated['keterangan'] ?? null,
-            'terms'          => $validated['terms'] ?? null,
-            'discount_total' => (float)($validated['discount_total'] ?? 0),
+            'discount_total' => $discountTotal,
             'extra_discount' => (float)($validated['extra_discount'] ?? 0),
             'shipping_cost'  => (float)($validated['shipping_cost'] ?? 0),
-            'tax_total'      => (float)($validated['tax_total'] ?? 0),
-            'grand_total'    => $subtotal
-                - ($validated['discount_total'] ?? 0)
-                - ($validated['extra_discount'] ?? 0)
-                + ($validated['shipping_cost'] ?? 0)
-                + ($validated['tax_total'] ?? 0),
+            'tax_total'      => $taxTotal,
+            'grand_total'    => $grandTotal,
+            'keterangan'     => $validated['keterangan'] ?? null,
+            'terms'          => $validated['terms'] ?? null,
             'custom_labels'  => $validated['custom_labels'] ?? null,
             'logo_path'      => $validated['logo_path'] ?? null,
             'signature_path' => $validated['signature_path'] ?? null,
@@ -314,53 +350,82 @@ class InvoiceController extends Controller
 
     private function updateInvoiceData(Invoice $invoice, $validated)
     {
-        $subtotal = 0;
+        $subtotal = 0.0;
+        $discountTotal = 0.0;
+        $taxTotal = 0.0;
         $itemsData = [];
 
         foreach ($validated['items'] as $item) {
             $product = Product::with('prices')->find($item['product_id']);
-            $price = $product?->prices()->first()?->price ?? 0;
 
-            // hitung harga kotor (qty * harga satuan)
-            $lineBase = $item['quantity'] * $price;
-
-            // ✅ hitung diskon sesuai type
-            $discount = 0;
-            if (($item['discount_type'] ?? 'amount') === 'percent') {
-                $discount = $lineBase * ($item['discount'] ?? 0) / 100;
+            // Pilih harga sama seperti save
+            $price = 0.0;
+            if (!empty($item['price_id'])) {
+                $priceRow = ProductPrice::find($item['price_id']);
+                if ($priceRow && $priceRow->product_id == $product->id) {
+                    $price = (float) $priceRow->price;
+                } else {
+                    $price = (float) ($item['price'] ?? 0);
+                }
             } else {
-                $discount = $item['discount'] ?? 0;
+                $price = (float) ($item['price'] ?? ($product?->prices()->first()?->price ?? 0));
             }
 
-            // ✅ hitung setelah diskon
+            $qty = (float) ($item['quantity'] ?? 0);
+            $lineBase = $qty * $price;
+
+            $discount = 0.0;
+            $discType = $item['discount_type'] ?? 'percent';
+            if ($discType === 'percent') {
+                $discount = $lineBase * ((float)($item['discount'] ?? 0) / 100);
+            } else {
+                $discount = (float)($item['discount'] ?? 0);
+            }
+
             $afterDiscount = $lineBase - $discount;
-
-            // ✅ hitung pajak (anggap %)
-            $tax = ($afterDiscount * ($item['tax'] ?? 0)) / 100;
-
-            // ✅ total akhir per baris
+            $taxPercent = (float)($item['tax'] ?? 0);
+            $tax = ($afterDiscount * $taxPercent) / 100;
             $lineTotal = $afterDiscount + $tax;
 
-            $subtotal += $lineTotal;
+            $subtotal += $lineBase;
+            $discountTotal += $discount;
+            $taxTotal += $tax;
 
             $itemsData[] = [
                 'product_id'    => $item['product_id'],
-                'description'   => $item['description'] ?? $product->name,
-                'quantity'      => $item['quantity'],
-                'unit'          => $item['unit'] ?? $product->unit_default ?? '-',
+                'price_id'      => $item['price_id'] ?? null,
+                'description'   => $item['description'] ?? ($product->name ?? '-'),
+                'quantity'      => $qty,
+                'unit'          => $item['unit'] ?? ($product->prices()->first()?->unit ?? '-'),
                 'price'         => $price,
-                'discount'      => $item['discount'] ?? 0,
-                'discount_type' => $item['discount_type'] ?? 'amount',
-                'tax'           => $item['tax'] ?? 0,
+                'discount'      => (float)($item['discount'] ?? 0),
+                'discount_type' => $discType,
+                'tax'           => $taxPercent,
                 'total'         => $lineTotal,
             ];
         }
 
+        $extraDiscount = (float)($validated['extra_discount'] ?? 0);
+        $shippingCost  = (float)($validated['shipping_cost'] ?? 0);
 
-        // update invoice header
-        $invoice->update($this->extractInvoiceFields($validated, $subtotal));
+        $grandTotal = $subtotal
+            - $discountTotal
+            - $extraDiscount
+            + $shippingCost
+            + $taxTotal;
 
-        // replace items
+        // Update invoice dengan totals hasil hitungan server
+        $invoice->update(
+            $this->extractInvoiceFields(
+                $validated,
+                (float)$subtotal,
+                (float)$discountTotal,
+                (float)$taxTotal,
+                (float)$grandTotal
+            )
+        );
+
+        // Replace items
         $invoice->items()->delete();
         foreach ($itemsData as $data) {
             InvoiceItem::create(array_merge($data, ['invoice_id' => $invoice->id]));

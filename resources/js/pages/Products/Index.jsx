@@ -80,10 +80,10 @@ export default function Index({ products }) {
                                                     {product.prices.map((p, idx) => (
                                                         <span
                                                             key={idx}
-                                                            className="text-xs bg-base-300 rounded-md px-2 py-1 inline-block"
+                                                            className="text-xs bg-base-300/40 rounded-md px-2 py-1 inline-block"
                                                         >
                                                             {p.label} ({p.unit}, min {p.min_qty}):{" "}
-                                                            <span className="font-semibold text-purple-400">
+                                                            <span className="font-bold text-emerald-500">
                                                                 {formatRupiah(p.price)}
                                                             </span>
                                                         </span>

@@ -1,12 +1,24 @@
 "use client";
-import { router } from "@inertiajs/react";
+import React, { useEffect, useState } from "react";
+import { router, useForm, usePage, Head } from "@inertiajs/react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+    FileText,
+    User,
+    Plus,
+    Trash2,
+    Eye,
+    Save,
+    X,
+    ChevronLeft,
+    Grid,
+    Percent,
+} from "lucide-react";
 import ModernDashboardLayout from "@/layouts/DashboardLayout";
-
-import React, { useState } from "react";
-import { useForm, usePage, Head } from "@inertiajs/react";
 
 export default function Edit() {
     const { company, customers, products, invoice } = usePage().props;
+
 
     const { data, setData, put, processing, errors } = useForm({
         company_id: invoice.company_id || company?.id || null,
@@ -23,21 +35,37 @@ export default function Edit() {
         tax_total: invoice.tax_total || 0,
         signature_path: invoice.signature_path || "",
         status: invoice.status || "draft",
-        items: invoice.items.map((i) => ({
+        items: (invoice.items || []).map((i) => ({
             product_id: i.product_id,
-            price_id: i.price_id || "",
-            unit: i.unit || "-",
-            quantity: i.quantity,
-            price: i.price,
-            discount: i.discount,
+            // price_id: i.price_id ? Number(i.price_id) : "",
+            price_id: i.price_id || (i.price?.id ?? ""),
+            description: i.description ?? i.product?.name ?? "",
+            unit: i.unit ?? i.product?.unit_default ?? "",
+            quantity: Number(i.quantity) || 1,
+            price: Number(i.price) || (i.product?.prices?.[0]?.price ?? 0),
+            discount: Number(i.discount) || 0,
             discount_type: i.discount_type ?? "percent",
-            tax: i.tax ?? 0,
-            total: i.total,
-        })) || [],
+            tax: Number(i.tax) || i.product?.tax || 0,
+            total: Number(i.total) || 0,
+        })),
+
     });
 
-
     const [previewData, setPreviewData] = useState(null);
+
+    useEffect(() => {
+        // safety: ensure items is an array
+        if (!Array.isArray(data.items)) setData("items", []);
+    }, []);
+
+    const currencyFormat = (v) => {
+        const n = Number(v) || 0;
+        try {
+            return n.toLocaleString("id-ID");
+        } catch {
+            return String(n);
+        }
+    };
 
     // Tambah item
     const addItem = () => {
@@ -46,7 +74,7 @@ export default function Edit() {
             {
                 product_id: "",
                 price_id: "",
-                unit: "-",        // ✅ default biar tidak null
+                unit: "-",
                 quantity: 1,
                 price: 0,
                 discount: 0,
@@ -75,16 +103,38 @@ export default function Edit() {
         } else {
             item[field] = value;
         }
+        if (field === "product_id") {
+            item.product_id = Number(value);
+            const product = products.find((p) => p.id == item.product_id);
+
+            if (item.price_id) {
+                const priceObj = product?.prices?.find((pr) => pr.id == item.price_id);
+                if (priceObj) {
+                    item.price = priceObj.price;
+                    item.unit = priceObj.unit || "-";
+                }
+            } else {
+                const priceObj = product?.prices?.[0];
+                if (priceObj) {
+                    item.price_id = priceObj.id;
+                    item.price = priceObj.price;
+                    item.unit = priceObj.unit || "-";
+                }
+            }
+        }
+
 
         if (field === "price_id") {
+            item.price_id = Number(value);
             const product = products.find((p) => p.id == item.product_id);
-            const priceObj = product?.prices.find((pr) => pr.id == value);
+            const priceObj = product?.prices?.find((pr) => pr.id == item.price_id);
             if (priceObj) {
                 item.price = priceObj.price;
                 item.unit = priceObj.unit || "-";
             }
         }
 
+        // recalc totals for this item
         const qty = Number(item.quantity) || 0;
         const price = Number(item.price) || 0;
         const discountValue = Number(item.discount) || 0;
@@ -105,9 +155,6 @@ export default function Edit() {
         items[index] = item;
         setData("items", items);
     };
-
-
-
 
     // Hitung subtotal & total
     const subtotal = data.items.reduce((sum, i) => {
@@ -132,45 +179,14 @@ export default function Edit() {
             i.discount_type === "percent"
                 ? (qty * price * (Number(i.discount) || 0)) / 100
                 : Number(i.discount) || 0;
-        const subtotal = qty * price - discount;
-        return sum + (subtotal * (Number(i.tax) || 0)) / 100;
+        const sub = qty * price - discount;
+        return sum + (sub * (Number(i.tax) || 0)) / 100;
     }, 0);
 
     const grandTotal =
-        subtotal - totalDiscount + totalTax + Number(data.shipping_cost) - Number(data.extra_discount);
+        subtotal - totalDiscount + totalTax + Number(data.shipping_cost || 0) - Number(data.extra_discount || 0);
 
-    // Submit
-    // const submit = (e) => {
-    //     e.preventDefault();
-    //     console.log("Submitting data:", data);
-
-    //     put(route("invoices.update", invoice.id), {
-    //         ...data,
-    //         items: data.items.map(i => ({
-    //             ...i,
-    //             price_id: i.price_id === "" ? null : i.price_id, // ✅ convert "" ke null
-    //         })),
-    //         subtotal: Number(subtotal) || 0,       // ✅ WAJIB
-    //         discount_total: Number(totalDiscount) || 0,
-    //         tax_total: Number(totalTax) || 0,
-    //         shipping_cost: Number(data.shipping_cost) || 0,
-    //         extra_discount: Number(data.extra_discount) || 0,
-    //         grand_total:
-    //             Number(subtotal) - Number(totalDiscount) + Number(totalTax)
-    //             + Number(data.shipping_cost) - Number(data.extra_discount),
-    //     }, {
-    //         forceFormData: true,
-    //         onError: (err) => {
-    //             console.error("Validation errors:", err);
-    //             alert("Ada error input, cek console untuk detail!");
-    //         },
-    //         onSuccess: () => {
-    //             alert("Invoice berhasil diperbarui!");
-    //         },
-    //     });
-
-    // };
-
+    // Submit (gunakan handleSubmit yg ada di Edit.jsx)
     const handleSubmit = (e) => {
         e.preventDefault();
 
@@ -191,9 +207,10 @@ export default function Edit() {
         formData.append("items", JSON.stringify(
             data.items.map(i => ({
                 ...i,
-                price_id: i.price_id === "" ? null : i.price_id,
+                price_id: i.price_id ? Number(i.price_id) : null,
             }))
         ));
+
 
         // perhitungan
         formData.append("subtotal", subtotal);
@@ -210,15 +227,14 @@ export default function Edit() {
             formData.append("old_signature_path", data.signature_path);
         }
 
-
         // method override biar tetap PUT
         formData.append("_method", "put");
 
-        // debug sebelum kirim
-        console.log("=== FORM DATA SEBELUM KIRIM ===");
-        for (let pair of formData.entries()) {
-            console.log(pair[0], pair[1]);
-        }
+        // debug sebelum kirim (tetap non-blocking)
+        // console.log("=== FORM DATA SEBELUM KIRIM ===");
+        // for (let pair of formData.entries()) {
+        //     console.log(pair[0], pair[1]);
+        // }
 
         // kirim pakai post (bukan put)
         router.post(route("invoices.update", invoice.id), formData, {
@@ -227,10 +243,6 @@ export default function Edit() {
             onSuccess: () => alert("Invoice berhasil diperbarui!"),
         });
     };
-
-
-
-
 
     // Preview
     const preview = () => {
@@ -245,299 +257,395 @@ export default function Edit() {
 
     return (
         <ModernDashboardLayout>
-            <Head title="Dashboard" />
-            <div className="max-w-6xl p-6 mx-auto shadow-xl bg-base-100 rounded-2xl">
-                <h1 className="mb-6 text-2xl font-bold">Edit Invoice</h1>
+            <Head title="Edit Invoice" />
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Customer */}
-                    <div className="form-control">
-                        <label className="label">Pelanggan</label>
-                        <select
-                            value={data.customer_id}
-                            onChange={(e) => setData("customer_id", Number(e.target.value) || "")}
-                            className="w-full select select-bordered select-primary"
+            <div className="max-w-6xl p-4 mx-auto">
+                <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="p-6 border shadow-xl card bg-base-100/40 backdrop-blur-md border-base-300 rounded-2xl"
+                >
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <FileText className="w-8 h-8 text-gradient" />
+                            <div>
+                                <h1 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400">
+                                    Edit Invoice
+                                </h1>
+                                <p className="text-sm opacity-70">
+                                    Ubah invoice dan simpan perubahan
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={preview}
+                                className="flex items-center gap-2 btn btn-ghost btn-sm"
+                            >
+                                <Eye className="w-4 h-4" /> Preview
+                            </button>
+                            <button
+                                onClick={() => window.history.back()}
+                                className="flex items-center gap-2 btn btn-outline btn-sm"
+                                type="button"
+                            >
+                                <ChevronLeft className="w-4 h-4" /> Kembali
+                            </button>
+                        </div>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* Bagian Atas */}
+                        <motion.div
+                            layout
+                            whileHover={{ scale: 1.01 }}
+                            className="grid grid-cols-1 gap-4 md:grid-cols-3"
                         >
-                            <option value="">-- Pilih Customer --</option>
-                            {customers?.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                    {c.name}
-                                </option>
-                            ))}
-                        </select>
+                            <div className="col-span-2 space-y-4">
+                                {/* Customer */}
+                                <div className="form-control">
+                                    <label className="flex items-center gap-2 label">
+                                        <User className="w-4 h-4" />
+                                        <span className="label-text">Pelanggan</span>
+                                    </label>
+                                    <select
+                                        value={data.customer_id}
+                                        onChange={(e) => setData("customer_id", Number(e.target.value) || "")}
+                                        className="w-full select select-bordered select-primary"
+                                    >
+                                        <option value="">-- Pilih Customer --</option>
+                                        {customers?.map((c) => (
+                                            <option key={c.id} value={c.id}>
+                                                {c.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {errors.customer_id && (
+                                        <span className="text-sm text-error">
+                                            {errors.customer_id}
+                                        </span>
+                                    )}
+                                </div>
 
-                        {errors.customer_id && (
-                            <span className="text-sm text-error">{errors.customer_id}</span>
-                        )}
-                    </div>
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="form-control">
+                                        <label className="label">Nomor Invoice</label>
+                                        <input
+                                            type="text"
+                                            value={data.invoice_no}
+                                            onChange={(e) => setData("invoice_no", e.target.value)}
+                                            className="input input-bordered"
+                                        />
+                                    </div>
+                                    <div className="form-control">
+                                        <label className="label">Tanggal</label>
+                                        <input
+                                            type="date"
+                                            value={data.invoice_date}
+                                            onChange={(e) => setData("invoice_date", e.target.value)}
+                                            className="input input-bordered"
+                                        />
+                                    </div>
+                                    <div className="form-control">
+                                        <label className="label">Jatuh Tempo</label>
+                                        <input
+                                            type="date"
+                                            value={data.due_date}
+                                            onChange={(e) => setData("due_date", e.target.value)}
+                                            className="input input-bordered"
+                                        />
+                                    </div>
+                                </div>
 
-                    {/* Invoice Info */}
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="form-control">
-                            <label className="label">Nomor Invoice</label>
-                            <input
-                                type="text"
-                                value={data.invoice_no}
-                                onChange={(e) => setData("invoice_no", e.target.value)}
-                                className="w-full input input-bordered input-primary"
-                            />
-                        </div>
-                        <div className="form-control">
-                            <label className="label">Tanggal Invoice</label>
-                            <input
-                                type="date"
-                                value={data.invoice_date}
-                                onChange={(e) => setData("invoice_date", e.target.value)}
-                                className="w-full input input-bordered input-primary"
-                            />
-                        </div>
-                        <div className="form-control">
-                            <label className="label">Jatuh Tempo</label>
-                            <input
-                                type="date"
-                                value={data.due_date}
-                                onChange={(e) => setData("due_date", e.target.value)}
-                                className="w-full input input-bordered input-primary"
-                            />
-                        </div>
-                    </div>
+                                {/* Notes & Terms */}
+                                <motion.div
+                                    layout
+                                    className="grid grid-cols-1 gap-4 md:grid-cols-2"
+                                >
+                                    <div className="form-control">
+                                        <label className="label">Keterangan</label>
+                                        <textarea
+                                            value={data.keterangan}
+                                            onChange={(e) => setData("keterangan", e.target.value)}
+                                            className="h-24 textarea textarea-bordered"
+                                        />
+                                    </div>
+                                    <div className="form-control">
+                                        <label className="label">Syarat & Ketentuan</label>
+                                        <textarea
+                                            value={data.terms}
+                                            onChange={(e) => setData("terms", e.target.value)}
+                                            className="h-24 textarea textarea-bordered"
+                                        />
+                                    </div>
+                                </motion.div>
+                            </div>
 
-                    <div className="w-full max-w-xs form-control">
-                        <label className="label">
-                            <span className="label-text">Mata Uang</span>
-                        </label>
-                        <select
-                            className="select select-bordered"
-                            value={data.currency}
-                            onChange={(e) => setData("currency", e.target.value)}
-                        >
-                            <option value="">-- Pilih Mata Uang --</option>
-                            <option value="IDR">IDR (Rp)</option>
-                            <option value="USD">USD ($)</option>
-                            <option value="EUR">EUR (€)</option>
-                        </select>
+                            {/* Sidebar summary & extras */}
+                            <motion.div layout className="space-y-4">
+                                <div className="p-4 border card bg-base-200/60 border-base-300">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="font-semibold">Ringkasan</h3>
+                                        <div className="badge badge-outline">{data.currency}</div>
+                                    </div>
 
-                        {errors.currency && (
-                            <span className="text-sm text-error">{errors.currency}</span>
-                        )}
-                    </div>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between">
+                                            <span>Subtotal</span>
+                                            <span className="font-semibold">
+                                                {currencyFormat(subtotal)}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>Total Diskon</span>
+                                            <span className="font-semibold">
+                                                -{currencyFormat(totalDiscount)}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>Total Pajak</span>
+                                            <span className="font-semibold">
+                                                {currencyFormat(totalTax)}
+                                            </span>
+                                        </div>
 
-                    {/* Items */}
-                    <div>
-                        <h2 className="mb-2 text-lg font-bold">Item Barang</h2>
-                        <div className="overflow-x-auto">
-                            <table className="table w-full table-zebra">
-                                <thead>
-                                    <tr>
-                                        <th>Produk</th>
-                                        <th>Satuan</th>
-                                        <th>Harga</th>
-                                        <th>Qty</th>
-                                        <th>Diskon</th>
-                                        <th>Pajak</th>
-                                        <th>Total</th>
-                                        <th>Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {data.items.map((item, index) => (
-                                        <tr key={index}>
-                                            <td>
-                                                <select
-                                                    value={item.product_id}
-                                                    onChange={(e) =>
-                                                        updateItem(index, "product_id", e.target.value)
-                                                    }
-                                                    className="select select-bordered select-sm"
-                                                >
-                                                    <option value="">-- Produk --</option>
-                                                    {products?.map((p) => (
-                                                        <option key={p.id} value={p.id}>
-                                                            {p.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td>
-                                                {item.product_id && (
+                                        <div className="flex items-center justify-between">
+                                            <label className="label">Ongkir</label>
+                                            <input
+                                                type="text"
+                                                value={currencyFormat(data.shipping_cost)}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value.replace(/\D/g, "");
+                                                    setData("shipping_cost", Number(raw) || 0);
+                                                }}
+                                                className="text-right input input-bordered input-sm w-28"
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center justify-between">
+                                            <label className="label">Diskon Tambahan</label>
+                                            <input
+                                                type="text"
+                                                value={currencyFormat(data.extra_discount)}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value.replace(/\D/g, "");
+                                                    setData("extra_discount", Number(raw) || 0);
+                                                }}
+                                                className="text-right input input-bordered input-sm w-28"
+                                            />
+                                        </div>
+
+                                        <div className="pt-3 border-t">
+                                            <div className="flex justify-between text-lg font-bold">
+                                                <span>Grand Total</span>
+                                                <span>{currencyFormat(grandTotal)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+
+                        <div className="mt-2">
+                            <div className="flex items-center justify-between mb-2">
+                                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                                    <Grid className="w-5 h-5" /> Item Barang
+                                </h2>
+                                <button
+                                    type="button"
+                                    className="flex items-center gap-2 btn btn-sm btn-outline"
+                                    onClick={addItem}
+                                >
+                                    <Plus className="w-4 h-4" /> Tambah Item
+                                </button>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="table w-full">
+                                    <thead>
+                                        <tr>
+                                            <th>Produk</th>
+                                            <th>Satuan</th>
+                                            <th>Harga</th>
+                                            <th>Qty</th>
+                                            <th>Diskon</th>
+                                            <th>Pajak</th>
+                                            <th className="text-right">Total</th>
+                                            <th>Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {data.items.map((item, idx) => (
+                                            <motion.tr
+                                                key={idx}
+                                                layout
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                exit={{ opacity: 0 }}
+                                            >
+                                                <td className="min-w-[180px]">
                                                     <select
-                                                        value={item.price_id}
+                                                        value={item.product_id}
                                                         onChange={(e) =>
-                                                            updateItem(index, "price_id", e.target.value)
+                                                            updateItem(idx, "product_id", e.target.value)
                                                         }
-                                                        className="select select-bordered select-sm"
+                                                        className="w-full select select-bordered select-sm"
                                                     >
-                                                        {products
-                                                            .find((p) => p.id == item.product_id)
-                                                            ?.prices.map((pr) => (
+                                                        <option value="">-- Produk --</option>
+                                                        {products?.map((p) => (
+                                                            <option key={p.id} value={p.id}>
+                                                                {p.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </td>
+                                                <td>
+                                                    {item.product_id ? (
+                                                        <select
+                                                            value={item.price_id || ""}
+                                                            onChange={(e) => updateItem(idx, "price_id", Number(e.target.value))}
+                                                            className="select select-bordered select-sm w-36"
+                                                        >
+                                                            <option value="">-- Pilih --</option>
+                                                            {products.find((p) => p.id == item.product_id)?.prices?.map((pr) => (
                                                                 <option key={pr.id} value={pr.id}>
                                                                     {pr.label} ({pr.unit})
                                                                 </option>
                                                             ))}
-                                                    </select>
-                                                )}
-                                            </td>
-                                            <td>{item.price.toLocaleString()}</td>
-                                            <td>
-                                                <input
-                                                    type="number"
-                                                    value={item.quantity}
-                                                    onChange={(e) =>
-                                                        updateItem(index, "quantity", e.target.value)
-                                                    }
-                                                    className="w-20 input input-bordered input-sm"
-                                                />
-                                            </td>
-                                            <td>
-                                                <div className="flex gap-1">
+                                                        </select>
+                                                    ) : (
+                                                        <span className="text-sm opacity-60">-</span>
+                                                    )}
+                                                </td>
+
+                                                <td>
                                                     <input
                                                         type="number"
-                                                        value={item.discount}
+                                                        step="1"
+                                                        value={item.price}
                                                         onChange={(e) =>
-                                                            updateItem(index, "discount", e.target.value)
+                                                            updateItem(idx, "price", e.target.value)
+                                                        }
+                                                        className="text-right input input-bordered input-sm w-28"
+                                                    />
+                                                </td>
+                                                <td>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="1"
+                                                        value={item.quantity}
+                                                        onChange={(e) =>
+                                                            updateItem(idx, "quantity", e.target.value)
                                                         }
                                                         className="w-20 input input-bordered input-sm"
                                                     />
+                                                </td>
+                                                <td>
+                                                    <div className="flex gap-1">
+                                                        <input
+                                                            type="number"
+                                                            step="1"
+                                                            value={item.discount}
+                                                            onChange={(e) =>
+                                                                updateItem(idx, "discount", e.target.value)
+                                                            }
+                                                            className="w-20 input input-bordered input-sm"
+                                                        />
+                                                        <select
+                                                            value={item.discount_type}
+                                                            onChange={(e) =>
+                                                                updateItem(
+                                                                    idx,
+                                                                    "discount_type",
+                                                                    e.target.value
+                                                                )
+                                                            }
+                                                            className="w-20 select select-bordered select-sm"
+                                                        >
+                                                            <option value="percent">%</option>
+                                                            <option value="amount">Rp</option>
+                                                        </select>
+                                                    </div>
+                                                </td>
+                                                <td>
                                                     <select
-                                                        value={item.discount_type}   // ✅
-                                                        onChange={(e) => updateItem(index, "discount_type", e.target.value)}
+                                                        value={String(item.tax)}
+                                                        onChange={(e) =>
+                                                            updateItem(idx, "tax", e.target.value)
+                                                        }
+                                                        className="select select-bordered select-sm w-28"
                                                     >
-                                                        <option value="percent">%</option>
-                                                        <option value="amount">Rp</option>
+                                                        <option value="0">0%</option>
+                                                        <option value="11">11% PPN</option>
+                                                        <option value="12">12% PPN</option>
                                                     </select>
-                                                </div>
-                                            </td>
-                                            <td>
-
-                                                <select
-                                                    value={Number(item.tax)}   // 🚀 pastikan number
-                                                    onChange={(e) => updateItem(index, "tax", Number(e.target.value))}
+                                                </td>
+                                                <td className="font-semibold text-right">
+                                                    {currencyFormat(item.total)}
+                                                </td>
+                                                <td>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-error btn-sm"
+                                                        onClick={() => removeItem(idx)}
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </td>
+                                            </motion.tr>
+                                        ))}
+                                        {data.items.length === 0 && (
+                                            <tr>
+                                                <td
+                                                    colSpan={8}
+                                                    className="py-6 text-center opacity-60"
                                                 >
-                                                    <option value={0}>0%</option>
-                                                    <option value={11}>11% PPN</option>
-                                                    <option value={12}>12% PPN</option>
-                                                </select>
-
-                                            </td>
-                                            <td className="text-right">{item.total.toLocaleString()}</td>
-                                            <td>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeItem(index)}
-                                                    className="btn btn-error btn-sm"
-                                                >
-                                                    Hapus
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        <button type="button" onClick={addItem} className="mt-2 btn btn-primary">
-                            + Tambah Item
-                        </button>
-                    </div>
-
-                    {/* Total */}
-                    <div className="p-4 space-y-2 shadow-inner card bg-base-200">
-                        <div className="flex justify-between">
-                            <span>Subtotal:</span>
-                            <span className="font-semibold">{subtotal.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span>Total Diskon:</span>
-                            <span className="font-semibold">-{totalDiscount.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span>Total Pajak:</span>
-                            <span className="font-semibold">{totalTax.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span>Ongkir:</span>
-                            <input
-                                type="number"
-                                value={data.shipping_cost}
-                                onChange={(e) => setData("shipping_cost", Number(e.target.value) || 0)}
-                                className="w-20 text-right input input-bordered input-sm"
-                            />
-                        </div>
-                        <div className="flex justify-between">
-                            <span>Diskon Tambahan:</span>
-                            <input
-                                type="number"
-                                value={data.extra_discount}
-                                onChange={(e) => setData("extra_discount", Number(e.target.value) || 0)}
-                                className="w-20 text-right input input-bordered input-sm"
-                            />
-                        </div>
-                        <div className="flex justify-between pt-2 text-lg font-bold border-t">
-                            <span>Grand Total:</span>
-                            <span>{grandTotal.toLocaleString()}</span>
-                        </div>
-                    </div>
-
-                    {/* Keterangan */}
-                    <div className="form-control">
-                        <label className="label">Keterangan</label>
-                        <textarea
-                            value={data.keterangan}
-                            onChange={(e) => setData("keterangan", e.target.value)}
-                            className="w-full textarea textarea-bordered"
-                        />
-                    </div>
-
-                    {/* Terms & Signature */}
-                    <div className="form-control">
-                        <label className="label">Syarat & Ketentuan</label>
-                        <textarea
-                            value={data.terms}
-                            onChange={(e) => setData("terms", e.target.value)}
-                            className="w-full textarea textarea-bordered"
-                        />
-                    </div>
-                    <div className="form-control">
-                        <label className="label">Tanda Tangan</label>
-
-                        {data.signature_path && (
-                            <div className="mb-2">
-                                {data.signature_path instanceof File ? (
-                                    <img
-                                        src={URL.createObjectURL(data.signature_path)}
-                                        alt="New Signature"
-                                        className="h-16"
-                                    />
-                                ) : (
-                                    <img
-                                        src={`/storage/${data.signature_path}`}
-                                        alt="Existing Signature"
-                                        className="h-16"
-                                    />
-                                )}
+                                                    Belum ada item. Klik "Tambah Item" untuk memulai.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
-                        )}
+                        </div>
 
+                        {/* Signature (paling bawah) */}
+                        <div className="p-4 border card bg-base-200/50 border-base-300">
+                            <div className="mt-3 form-control">
+                                <label className="label">Tanda Tangan</label>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => setData("signature_path", e.target.files[0])}
+                                    className="file-input file-input-bordered"
+                                />
+                            </div>
 
-                        {/* Upload baru */}
-                        <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => setData("signature_path", e.target.files[0])}
-                            className="w-full file-input file-input-bordered"
-                        />
-                    </div>
-
-
-                    {/* Buttons */}
-                    <div className="flex justify-end gap-2">
-                        <button type="button" onClick={preview} className="btn btn-secondary">
-                            Preview
-                        </button>
-                        <button type="submit" disabled={processing} className="btn btn-success">
-                            {processing ? "Menyimpan..." : "Update Invoice"}
-                        </button>
-                    </div>
-                </form>
+                            <div className="flex justify-end gap-2 mt-4">
+                                <button
+                                    type="button"
+                                    disabled={processing}
+                                    onClick={preview}
+                                    className="btn btn-ghost btn-sm"
+                                >
+                                    <Eye className="w-4 h-4" /> Preview
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={processing}
+                                    className="flex items-center gap-2 btn btn-primary btn-sm"
+                                >
+                                    <Save className="w-4 h-4" />{" "}
+                                    {processing ? "Menyimpan..." : "Update Invoice"}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </motion.div>
 
                 {/* Preview Modal */}
                 {previewData && (
@@ -597,22 +705,21 @@ export default function Edit() {
                                             const price = product?.prices.find((pr) => pr.id == i.price_id);
                                             return (
                                                 <tr key={idx}>
-                                                    <td>{product?.name}</td>
-                                                    <td>{price?.unit}</td>
+                                                    <td>{product?.name || "-"}</td>
+                                                    <td>{price?.unit || i.unit || "-"}</td>
                                                     <td>{i.quantity}</td>
-                                                    <td>{i.price.toLocaleString()}</td>
+                                                    <td>{i.price ? i.price.toLocaleString() : 0}</td>
                                                     <td>
                                                         {i.discount}
                                                         {i.discount_type === "percent" ? "%" : "Rp"}
                                                     </td>
-                                                    <td>{i.tax}%</td>
-                                                    <td>{i.total.toLocaleString()}</td>
+                                                    <td>{i.tax ? i.tax + "%" : "-"}</td>
+                                                    <td>{i.total ? i.total.toLocaleString() : 0}</td>
                                                 </tr>
                                             );
                                         })}
                                     </tbody>
                                 </table>
-
                                 {/* Summary */}
                                 <div className="p-4 mt-4 space-y-1 text-right border rounded shadow bg-base-100">
                                     <div>Subtotal: {subtotal.toLocaleString()}</div>
@@ -639,11 +746,19 @@ export default function Edit() {
                                 {data.signature_path && (
                                     <div className="mt-6">
                                         <h3 className="font-semibold">Tanda Tangan</h3>
-                                        <img
-                                            src={URL.createObjectURL(data.signature_path)}
-                                            alt="Signature"
-                                            className="h-16 mt-2"
-                                        />
+                                        {data.signature_path instanceof File ? (
+                                            <img
+                                                src={URL.createObjectURL(data.signature_path)}
+                                                alt="Signature"
+                                                className="h-16 mt-2"
+                                            />
+                                        ) : (
+                                            <img
+                                                src={`/storage/${data.signature_path}`}
+                                                alt="Existing Signature"
+                                                className="h-16 mt-2"
+                                            />
+                                        )}
                                     </div>
                                 )}
 
@@ -658,7 +773,6 @@ export default function Edit() {
                     </div>
                 )}
             </div>
-                    </ModernDashboardLayout >
-
-            );
+        </ModernDashboardLayout>
+    );
 }
