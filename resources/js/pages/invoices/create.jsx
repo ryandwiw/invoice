@@ -80,23 +80,42 @@ export default function Create() {
             value = Number(value) || 0;
         }
 
+        const product = products.find((p) => p.id == item.product_id);
+        const availableStock = product?.stock?.quantity_pcs ?? 0;
+
+        if (field === "quantity") {
+            // total qty untuk produk ini (gabungan semua satuan)
+            const totalQtyForProduct = data.items
+                .filter((i, iIdx) => i.product_id === item.product_id && iIdx !== index)
+                .reduce((sum, i) => sum + Number(i.quantity), 0) + value;
+
+            if (totalQtyForProduct > availableStock) {
+                alert(`Qty total untuk produk ini tidak boleh lebih dari stok: ${availableStock}`);
+                // set qty agar stok tidak terlampaui
+                value = Math.max(0, availableStock - (totalQtyForProduct - value));
+            }
+
+            if (value < 0) value = 0;
+        }
+
         item[field] = value;
 
         if (field === "product_id") {
             item.price_id = "";
             item.price = 0;
             item.unit = "";
+            item.quantity = 1;
         }
 
         if (field === "price_id") {
-            const prod = products?.find((p) => p.id == item.product_id);
-            const priceObj = prod?.prices?.find((pr) => pr.id == value);
+            const priceObj = product?.prices?.find((pr) => pr.id == value);
             if (priceObj) {
                 item.price = Number(priceObj.price) || 0;
                 item.unit = priceObj.unit || "";
             }
         }
 
+        // hitung total sementara
         const qty = Number(item.quantity) || 0;
         const price = Number(item.price) || 0;
         const discount =
@@ -105,11 +124,18 @@ export default function Create() {
                 : Number(item.discount) || 0;
         const subtotal = qty * price - discount;
         const taxValue = (subtotal * (Number(item.tax) || 0)) / 100;
-        item.total = Math.max(0, subtotal + taxValue);
 
+        if (subtotal + taxValue < 0) {
+            alert("Total per item tidak boleh minus!");
+            return; // batalkan update
+        }
+
+        item.total = subtotal + taxValue;
         items[index] = item;
         setData("items", items);
     };
+
+
 
     // totals
     const subtotal = data.items.reduce(
@@ -137,12 +163,10 @@ export default function Create() {
         return s + (sub * (Number(i.tax) || 0)) / 100;
     }, 0);
 
-    const grandTotal =
-        subtotal -
-        totalDiscount +
-        totalTax +
-        Number(data.shipping_cost || 0) -
-        Number(data.extra_discount || 0);
+    const grandTotal = Math.max(
+        0,
+        subtotal - totalDiscount + totalTax + Number(data.shipping_cost || 0) - Number(data.extra_discount || 0)
+    );
 
     const submit = (e) => {
         e.preventDefault();
@@ -270,7 +294,18 @@ export default function Create() {
                                         <input
                                             type="date"
                                             value={data.due_date}
-                                            onChange={(e) => setData("due_date", e.target.value)}
+                                            onChange={(e) => {
+                                                const selectedDate = e.target.value;
+                                                const invoiceDate = data.invoice_date;
+
+                                                if (selectedDate < invoiceDate) {
+                                                    alert("Tanggal jatuh tempo tidak boleh lebih kecil dari tanggal invoice!");
+                                                    setData("due_date", invoiceDate);
+                                                    return;
+                                                }
+
+                                                setData("due_date", selectedDate);
+                                            }}
                                             className="input input-bordered"
                                         />
                                     </div>
@@ -331,11 +366,19 @@ export default function Create() {
                                         <div className="flex items-center justify-between">
                                             <label className="label">Ongkir</label>
                                             <input
-                                                type="number"
-                                                value={data.shipping_cost}
-                                                onChange={(e) =>
-                                                    setData("shipping_cost", Number(e.target.value) || 0)
-                                                }
+                                                type="text"
+                                                value={currencyFormat(data.shipping_cost)}
+                                                onChange={(e) => {
+                                                    const val = Number(e.target.value.replace(/[^0-9]/g, "")) || 0;
+                                                    const newGrandTotal = subtotal - totalDiscount + totalTax + val - Number(data.extra_discount || 0);
+
+                                                    if (newGrandTotal < 0) {
+                                                        alert("Grand total tidak boleh minus!");
+                                                        return;
+                                                    }
+
+                                                    setData("shipping_cost", val);
+                                                }}
                                                 className="text-right input input-bordered input-sm w-28"
                                             />
                                         </div>
@@ -343,11 +386,19 @@ export default function Create() {
                                         <div className="flex items-center justify-between">
                                             <label className="label">Diskon Tambahan</label>
                                             <input
-                                                type="number"
-                                                value={data.extra_discount}
-                                                onChange={(e) =>
-                                                    setData("extra_discount", Number(e.target.value) || 0)
-                                                }
+                                                type="text"
+                                                value={currencyFormat(data.extra_discount)}
+                                                onChange={(e) => {
+                                                    const val = Number(e.target.value.replace(/[^0-9]/g, "")) || 0;
+                                                    const newGrandTotal = subtotal - totalDiscount + totalTax + Number(data.shipping_cost || 0) - val;
+
+                                                    if (newGrandTotal < 0) {
+                                                        alert("Grand total tidak boleh minus!");
+                                                        return;
+                                                    }
+
+                                                    setData("extra_discount", val);
+                                                }}
                                                 className="text-right input input-bordered input-sm w-28"
                                             />
                                         </div>
@@ -418,30 +469,41 @@ export default function Create() {
                                                 </td>
                                                 <td>
                                                     {item.product_id ? (
-                                                        <select
-                                                            value={item.price_id}
-                                                            onChange={(e) =>
-                                                                updateItem(idx, "price_id", e.target.value)
-                                                            }
-                                                            className="select select-bordered select-sm w-36"
-                                                        >
-                                                            <option value="">-- Pilih --</option>
-                                                            {products
-                                                                .find((p) => p.id == item.product_id)
-                                                                ?.prices?.map((pr) => (
-                                                                    <option key={pr.id} value={pr.id}>
-                                                                        {pr.label} ({pr.unit})
-                                                                    </option>
-                                                                ))}
-                                                        </select>
+                                                        <div className="flex flex-col gap-1">
+                                                            {/* Dropdown harga/unit */}
+                                                            <select
+                                                                value={String(item.price_id || "")}
+                                                                onChange={(e) =>
+                                                                    updateItem(idx, "price_id", Number(e.target.value))
+                                                                }
+                                                                className="select select-bordered select-sm w-36"
+                                                            >
+                                                                <option value="">-- Pilih --</option>
+                                                                {products
+                                                                    .find((p) => p.id == item.product_id)
+                                                                    ?.prices?.map((pr) => (
+                                                                        <option key={pr.id} value={pr.id}>
+                                                                            {pr.label} ({pr.unit})
+                                                                        </option>
+                                                                    ))}
+                                                            </select>
+
+                                                            {/* Tampilkan stok produk */}
+                                                            <span className="text-xs opacity-70">
+                                                                Stok tersedia:{" "}
+                                                                {products.find((p) => p.id == item.product_id)?.stock?.quantity_pcs ?? 0} pcs
+                                                            </span>
+                                                        </div>
                                                     ) : (
                                                         <span className="text-sm opacity-60">-</span>
                                                     )}
+
                                                 </td>
                                                 <td>
                                                     <input
                                                         type="number"
-                                                        value={item.price}
+                                                        value={currencyFormat(item.price)}
+                                                        readOnly
                                                         onChange={(e) =>
                                                             updateItem(idx, "price", e.target.value)
                                                         }

@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('name');
             $table->text('description')->nullable();
             $table->unsignedInteger('pieces_per_carton')->default(1);
+             $table->string('unit_default')->default('pcs');
             $table->timestamps();
         });
     }

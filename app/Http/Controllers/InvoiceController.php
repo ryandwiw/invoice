@@ -44,7 +44,7 @@ class InvoiceController extends Controller
         return inertia('Invoices/Create', [
             'company'   => Company::first(),
             'customers' => Customer::all(),
-            'products'  => Product::with('prices')->get(),
+            'products'  => Product::with('prices', 'stock')->get(),
         ]);
     }
 
@@ -74,7 +74,9 @@ class InvoiceController extends Controller
             $invoice = $this->saveInvoiceData($validated);
 
             // kurangi stok hanya kalau status printed/sent
-            $this->adjustStockOnStatus($invoice);
+            if (in_array($invoice->status, ['printed', 'sent'])) {
+                $this->adjustStockOnStatus($invoice);
+            }
 
             return redirect()->route('invoices.show', $invoice->id)
                 ->with('success', 'Invoice berhasil dibuat!');
@@ -84,7 +86,7 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice)
     {
-        $invoice->load('items.product', 'customer', 'user', 'company');
+        $invoice->load('items.product', 'customer', 'user', 'company', 'items.price',);
 
         return inertia('Invoices/Show', [
             'invoice' => $invoice,
@@ -108,6 +110,11 @@ class InvoiceController extends Controller
     {
         $this->authorizeFinance();
 
+        // 🚫 Tidak boleh edit kalau sudah printed atau sent
+        if (in_array($invoice->status, ['printed', 'sent'])) {
+            return back()->with('error', "Invoice {$invoice->invoice_no} tidak bisa diubah karena sudah {$invoice->status}!");
+        }
+
         // 🛠 decode dulu kalau items masih string
         if ($request->has('items') && is_string($request->items)) {
             $request->merge([
@@ -117,19 +124,15 @@ class InvoiceController extends Controller
 
         $validated = $this->validateInvoice($request, $invoice->id);
 
-        // ✅ Simpan file tanda tangan baru kalau ada
         if ($request->hasFile('signature_path')) {
             $validated['signature_path'] = $request->file('signature_path')
                 ->store('signatures', 'public');
         } else {
-            // 🚀 pertahankan path lama
             $validated['signature_path'] = $invoice->signature_path;
         }
 
-
         return DB::transaction(function () use ($validated, $invoice) {
             $this->updateInvoiceData($invoice, $validated);
-            $this->adjustStockOnStatus($invoice);
 
             return redirect()
                 ->route('invoices.show', $invoice->id)
@@ -138,15 +141,19 @@ class InvoiceController extends Controller
     }
 
 
-
     public function destroy(Invoice $invoice)
     {
-        $this->authorizeFinance();
+        if (in_array($invoice->status, ['printed', 'sent'])) {
+            return redirect()
+                ->back()
+                ->with('error', 'Invoice dengan status Printed/Sent tidak bisa dihapus.');
+        }
 
         $invoice->delete();
 
-        return redirect()->route('invoices.index')
-            ->with('success', 'Invoice berhasil dihapus!');
+        return redirect()
+            ->route('invoices.index')
+            ->with('success', 'Invoice berhasil dihapus.');
     }
 
     public function print(Invoice $invoice)
@@ -160,23 +167,20 @@ class InvoiceController extends Controller
 
     private function adjustStockOnStatus(Invoice $invoice)
     {
-        if (in_array($invoice->status, ['printed', 'sent'])) {
-            foreach ($invoice->items as $item) {
-                if (!empty($item->product_id)) {
-                    $product = $item->product;
-                    if ($product && $product->stock) { // pakai relasi stock() (hasOne)
-                        $multiplier = $item->unit_multiplier ?? 1;
-                        $realQty = $item->quantity * $multiplier;
-                        $decrementQty = max(0, (int) round($realQty));
-                        if ($decrementQty > 0) {
-                            $product->stock()->decrement('quantity_pcs', $decrementQty);
-                        }
+        foreach ($invoice->items as $item) {
+            if (!empty($item->product_id)) {
+                $product = $item->product;
+                if ($product && $product->stock) {
+                    $multiplier = $item->unit_multiplier ?? 1;
+                    $realQty = $item->quantity * $multiplier;
+                    $decrementQty = max(0, (int) round($realQty));
+                    if ($decrementQty > 0) {
+                        $product->stock()->decrement('quantity_pcs', $decrementQty);
                     }
                 }
             }
         }
     }
-
 
     private function authorizeFinance()
     {
@@ -432,5 +436,35 @@ class InvoiceController extends Controller
         }
 
         return $invoice;
+    }
+
+    public function markPrinted(Invoice $invoice)
+    {
+        $this->authorizeFinance();
+
+        return DB::transaction(function () use ($invoice) {
+            if ($invoice->status === 'draft') {
+                $this->adjustStockOnStatus($invoice);
+            }
+
+            $invoice->update(['status' => 'printed']);
+
+            return back()->with('success', "Invoice {$invoice->invoice_no} ditandai sebagai Printed!");
+        });
+    }
+
+    public function markSent(Invoice $invoice)
+    {
+        $this->authorizeFinance();
+
+        return DB::transaction(function () use ($invoice) {
+            if ($invoice->status === 'draft') {
+                $this->adjustStockOnStatus($invoice);
+            }
+
+            $invoice->update(['status' => 'sent']);
+
+            return back()->with('success', "Invoice {$invoice->invoice_no} ditandai sebagai Sent!");
+        });
     }
 }

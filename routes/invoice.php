@@ -15,35 +15,39 @@ Route::middleware(['auth'])->group(function () {
     // ===========================
     // Company (Admin Only)
     // ===========================
-    Route::middleware(CheckRole::class.':admin')->group(function () {
+    Route::middleware(CheckRole::class . ':admin')->group(function () {
         Route::resource('companies', CompanyController::class);
     });
 
     // ===========================
     // Products (Admin Only)
     // ===========================
-    Route::middleware(CheckRole::class.':admin')->group(function () {
+    Route::middleware(CheckRole::class . ':admin')->group(function () {
         Route::resource('products', ProductController::class);
     });
 
     // ===========================
     // Customers (Finance / Sales)
     // ===========================
-    Route::middleware(CheckRole::class.':finance')->group(function () {
+    Route::middleware(CheckRole::class . ':finance')->group(function () {
         Route::resource('customers', CustomerController::class);
     });
 
     // ===========================
     // Invoices (Finance / Sales)
     // ===========================
-    Route::middleware(CheckRole::class.':finance')->group(function () {
+    Route::middleware(CheckRole::class . ':finance')->group(function () {
         Route::get('invoices/{invoice}/print', [InvoiceController::class, 'print'])
             ->name('invoices.print');
 
         Route::post('invoices/preview', [InvoiceController::class, 'preview'])
             ->name('invoices.preview');
 
+        Route::patch('invoices/{invoice}/printed', [InvoiceController::class, 'markPrinted'])
+            ->name('invoices.markPrinted');
+        Route::patch('invoices/{invoice}/sent', [InvoiceController::class, 'markSent'])
+            ->name('invoices.markSent');
+
         Route::resource('invoices', InvoiceController::class);
     });
-
 });

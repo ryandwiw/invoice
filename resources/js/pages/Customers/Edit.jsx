@@ -62,7 +62,7 @@ export default function Edit({ customer }) {
 
     return (
       <div className="form-control">
-        <label className="label gap-2 font-semibold text-sm ">
+        <label className="gap-2 text-sm font-semibold label ">
           <Icon className="w-4 h-4 text-cyan-400" /> {label}
         </label>
         <Combobox
@@ -74,14 +74,14 @@ export default function Edit({ customer }) {
         >
           <div className="relative">
             <Combobox.Input
-              className="input input-bordered w-full"
+              className="w-full input input-bordered"
               placeholder={placeholder}
               displayValue={() => query}
               onChange={(e) => setQuery(e.target.value)}
               onBlur={() => onChange(query)}
             />
             {filtered.length > 0 && (
-              <Combobox.Options className="absolute z-10 w-full mt-1 bg-base-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+              <Combobox.Options className="absolute z-10 w-full mt-1 overflow-auto rounded-lg shadow-lg bg-base-200 max-h-60">
                 {filtered.map((item, idx) => (
                   <Combobox.Option
                     key={idx}
@@ -97,7 +97,7 @@ export default function Edit({ customer }) {
             )}
           </div>
         </Combobox>
-        {error && <span className="text-error text-sm">{error}</span>}
+        {error && <span className="text-sm text-error">{error}</span>}
       </div>
     );
   };
@@ -105,21 +105,21 @@ export default function Edit({ customer }) {
   return (
     <ModernDashboardLayout>
       <Head title="Edit Perusahaan" />
-      <div className="max-w-6xl mx-auto p-3">
+      <div className="max-w-6xl p-3 mx-auto">
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5 }}
-          className="card bg-base-100/50 backdrop-blur-lg shadow-xl border border-base-300 p-6"
+          className="p-6 border shadow-xl card bg-base-100/50 backdrop-blur-lg border-base-300"
         >
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Building2 className="w-7 h-7 text-purple-500" />
-              <span className="bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 bg-clip-text text-transparent">
+            <h1 className="flex items-center gap-2 text-3xl font-bold">
+              <Building2 className="text-purple-500 w-7 h-7" />
+              <span className="text-transparent bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 bg-clip-text">
                 Edit Perusahaan
               </span>
             </h1>
-            <Link href={route("customers.index")} className="btn btn-primary gap-2">
+            <Link href={route("customers.index")} className="gap-2 btn btn-primary">
               <ArrowLeft className="w-4 h-4" /> Kembali
             </Link>
           </div>
@@ -135,34 +135,33 @@ export default function Edit({ customer }) {
           <form onSubmit={handleSubmit} className="space-y-6" encType="multipart/form-data">
             {/* Nama Perusahaan */}
             <div className="form-control">
-              <label className="label gap-2 font-semibold text-sm ">
+              <label className="gap-2 text-sm font-semibold label ">
                 <Building2 className="w-4 h-4 text-purple-400" /> Nama Perusahaan
               </label>
               <input
                 type="text"
                 placeholder="Contoh: PT. Ambition"
-                className="input input-bordered w-full"
+                className="w-full input input-bordered"
                 value={data.name}
                 onChange={(e) => setData("name", e.target.value)}
               />
-              {errors.name && <span className="text-error text-sm">{errors.name}</span>}
+              {errors.name && <span className="text-sm text-error">{errors.name}</span>}
             </div>
 
             {/* Alamat */}
             <div className="form-control">
-              <label className="label gap-2 font-semibold text-sm ">
+              <label className="gap-2 text-sm font-semibold label ">
                 <MapPin className="w-4 h-4 text-pink-400" /> Alamat
               </label>
               <textarea
                 placeholder="Alamat Jalan lengkap (tanpa kota, provinsi, kode pos)"
-                className="textarea textarea-bordered w-full"
+                className="w-full textarea textarea-bordered"
                 value={data.address}
                 onChange={(e) => setData("address", e.target.value)}
               />
-              {errors.address && <span className="text-error text-sm">{errors.address}</span>}
+              {errors.address && <span className="text-sm text-error">{errors.address}</span>}
             </div>
 
-            {/* Kota, Provinsi, Kode Pos */}
             <ComboboxInput
               label="Kota"
               icon={LocateFixed}
@@ -193,15 +192,14 @@ export default function Edit({ customer }) {
 
             <input type="hidden" value={data.country} name="country" />
 
-            {/* Nomor HP */}
             <div className="form-control">
-              <label className="label gap-2 font-semibold text-sm ">
+              <label className="gap-2 text-sm font-semibold label ">
                 <Phone className="w-4 h-4 text-cyan-400" /> Nomor Telepon
               </label>
               <input
                 type="text"
                 placeholder="Contoh: 081234567890"
-                className="input input-bordered w-full"
+                className="w-full input input-bordered"
                 value={data.phone}
                 onChange={(e) => {
                   let val = e.target.value.replace(/\D/g, "");
@@ -216,19 +214,18 @@ export default function Edit({ customer }) {
                 }}
               />
               {(errors.phone || liveErrors.phone) && (
-                <span className="text-error text-sm">{errors.phone || liveErrors.phone}</span>
+                <span className="text-sm text-error">{errors.phone || liveErrors.phone}</span>
               )}
             </div>
 
-            {/* Email */}
             <div className="form-control">
-              <label className="label gap-2 font-semibold text-sm ">
+              <label className="gap-2 text-sm font-semibold label ">
                 <Mail className="w-4 h-4 text-emerald-400" /> Email
               </label>
               <input
                 type="email"
                 placeholder="Contoh: info@perusahaan.com"
-                className="input input-bordered w-full"
+                className="w-full input input-bordered"
                 value={data.email}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -241,18 +238,17 @@ export default function Edit({ customer }) {
                 }}
               />
               {(errors.email || liveErrors.email) && (
-                <span className="text-error text-sm">{errors.email || liveErrors.email}</span>
+                <span className="text-sm text-error">{errors.email || liveErrors.email}</span>
               )}
             </div>
 
-            {/* Logo */}
             <div className="form-control">
-              <label className="label gap-2 font-semibold text-sm ">
+              <label className="gap-2 text-sm font-semibold label ">
                 <ImageIcon className="w-4 h-4 text-yellow-400" /> Logo Perusahaan
               </label>
               <input
                 type="file"
-                className="file-input file-input-bordered w-full"
+                className="w-full file-input file-input-bordered"
                 accept="image/*"
                 onChange={(e) => {
                   const file = e.target.files[0];
@@ -263,15 +259,14 @@ export default function Edit({ customer }) {
                 }}
               />
               {preview && <img src={preview} alt="Preview" className="w-24 h-24 mt-2 rounded-lg" />}
-              {errors.logo_path && <span className="text-error text-sm">{errors.logo_path}</span>}
+              {errors.logo_path && <span className="text-sm text-error">{errors.logo_path}</span>}
             </div>
 
-            {/* Tombol */}
             <div className="flex justify-end gap-3 mt-6">
-              <Link href={route("customers.index")} className="btn btn-ghost gap-2">
+              <Link href={route("customers.index")} className="gap-2 btn btn-ghost">
                 <ArrowLeft className="w-4 h-4" /> Batal
               </Link>
-              <button type="submit" className="btn btn-primary gap-2 shadow-lg shadow-primary/40">
+              <button type="submit" className="gap-2 shadow-lg btn btn-primary shadow-primary/40">
                 <Save className="w-4 h-4" /> Update
               </button>
             </div>
